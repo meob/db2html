@@ -19,9 +19,7 @@ db2html contains very useful scripts for DBAs and database power users.
 
 ## ora2html - Oracle
 ora2html.zip contains several useful Oracle DBA scripts:
-*  ora2html.sql: is an easy and flexible script to collect Oracle RDBMS Configuration.  
-*  ora2html.sql has been designed to work on all Oracle RDBMS releases since 7.1.
-*  ora2html.sql supports all Oracle versions from 7.3.4 (with few complaints) to 12c
+*  ora2html.sql: is an easy and flexible script to collect Oracle RDBMS Configuration since 7.1 and to 19c
 *  custom.sql: ora2html Plug-in script launcher (eg. RAC, Data Guard, ASM, Oracle 12c, ...)
 *  whodo.sql: current database usage
 *  dg2html.sql: Data Guard Standby Instance configuration
@@ -44,8 +42,7 @@ The zip file contains other useful scripts like:
 
 ## my2html - MySQL
 my2html is an easy and flexible tool to collect MySQL DBs configuration
-my2html works fine on MySQL >= 5.0 and forks but version specific scripts are also available (eg. for 3.23)
-The script uses the default test database to create temporary views.
+my2html works fine on MySQL >= 5.0 and forks but version specific scripts are also available (eg. for 3.23 or 8.0)
 
 ### Usage
 > vi my2html.sh		# If Your need to change the password  
@@ -54,7 +51,7 @@ The script uses the default test database to create temporary views.
 
 ## pg2html - PostgreSQL
 pg2html is an easy and flexible tool to collect PostgreSQL configuration
-pg2html has been designed to work on all PostgreSQL releases and had been tested up to 11
+pg2html has been designed to work on all PostgreSQL releases since 7.0 and had been tested up to 11
 
 ### Usage
 Login as postgres user then  
@@ -81,6 +78,7 @@ Login as db2admin user then
 
 
 # License
+db2html: RDBMSs simple SQL assessment reports in HTML
 Copyright 1996-2019 mail@meo.bogliolo.name 
 
 This program is free software; you can redistribute it and/or modify
@@ -92,5 +90,4 @@ but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  
 See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
+along with this program. If not, see https://www.gnu.org/licenses/
