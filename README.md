@@ -67,16 +67,6 @@ ch2html has been designed to work on ClickHouse 18.x releases or newer
 > sh ch2html.sh
 
 
-## db2html - DB2
-db2html is an easy and flexible tool to collect DB2 configuration
-db2html has been designed to work on DB2 9.7 releases or newer
-db2html is in Beta version
-
-### Usage
-Login as db2admin user then  
-> clpplus db2admin@localhost:50000/sample @db2html.sql
-
-
 # License
 db2html: RDBMSs simple SQL assessment reports in HTML
 Copyright 1996-2019 mail@meo.bogliolo.name 
