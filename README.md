@@ -1,13 +1,14 @@
 # db2html
 Simple SQL reports in HTML for several RDMS
 
-db2html contains powerful SQL scripts that collect database configuration from famous RDBMS:  
+db2html contains powerful SQL scripts that collect database configuration from several RDBMS:  
 * Oracle
 * MySQL
 * PostgreSQL
 * ClickHouse
+
 The scripts are periodically upgraded in order to use the newest functionality from RDBMS
-while maintaining backward compatibility (eg. Oracle 19c, Postgres 11, MySQL 5.7/8.0, ...)
+while maintaining backward compatibility (eg. Oracle 19c, PostgreSQL 11, MySQL 5.7/8.0, ...)
 
 Each database has its own .zip file but the structure is the same:
 there are simple and easy to customize SQL scripts that discover
