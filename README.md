@@ -8,7 +8,7 @@ db2html contains powerful SQL scripts that collect database configuration from s
 * ClickHouse
 
 The scripts are periodically upgraded in order to use the newest functionality from RDBMS
-while maintaining backward compatibility (eg. Oracle 19c, PostgreSQL 11, MySQL 5.7/8.0, ...)
+while maintaining backward compatibility (eg. Oracle 19c, PostgreSQL 15, MySQL 8.0, MariaDB 10.x, ...)
 
 Each database has its own .zip file but the structure is the same:
 there are simple and easy to customize SQL scripts that discover
@@ -19,7 +19,7 @@ db2html contains very useful scripts for DBAs and database power users.
 
 ## ora2html - Oracle
 ora2html.zip contains several useful Oracle DBA scripts:
-*  ora2html.sql: is an easy and flexible script to collect Oracle RDBMS Configuration since 7.1 and to 19c
+*  ora2html.sql: is an easy and flexible script to collect Oracle RDBMS Configuration since 7.1 and up to 23c
 *  custom.sql: ora2html Plug-in script launcher (eg. RAC, Data Guard, ASM, Oracle 12c, ...)
 *  whodo.sql: current database usage
 *  dg2html.sql: Data Guard Standby Instance configuration
@@ -51,7 +51,7 @@ my2html works fine on MySQL >= 5.0 and forks but version specific scripts are al
 
 ## pg2html - PostgreSQL
 pg2html is an easy and flexible tool to collect PostgreSQL configuration
-pg2html has been designed to work on all PostgreSQL releases since 7.0 and had been tested up to 11
+pg2html has been designed to work on all PostgreSQL releases since 7.0 and had been tested up to 16
 
 ### Usage
 Login as postgres user then  
@@ -69,7 +69,7 @@ ch2html has been designed to work on ClickHouse 18.x releases or newer
 
 # License
 db2html: RDBMSs simple SQL assessment reports in HTML
-Copyright 1996-2019 mail@meo.bogliolo.name 
+Copyright 1996-2023 mail@meo.bogliolo.name 
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
