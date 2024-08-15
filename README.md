@@ -8,7 +8,7 @@ db2html contains powerful SQL scripts that collect database configuration from s
 * ClickHouse
 
 The scripts are periodically upgraded in order to use the newest functionality from RDBMS
-while maintaining backward compatibility (eg. Oracle 19c, PostgreSQL 15, MySQL 8.0, MariaDB 10.x, ...)
+while maintaining backward compatibility (eg. Oracle 19c, PostgreSQL 16, MySQL 8.0, MariaDB 10+, ...)
 
 Each database has its own .zip file but the structure is the same:
 there are simple and easy to customize SQL scripts that discover
@@ -69,7 +69,7 @@ ch2html has been designed to work on ClickHouse 18.x releases or newer
 
 # License
 db2html: RDBMSs simple SQL assessment reports in HTML
-Copyright 1996-2023 mail@meo.bogliolo.name 
+Copyright 1996-2024 mail@meo.bogliolo.name 
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
