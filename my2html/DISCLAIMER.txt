@@ -1,0 +1,18 @@
+/***********************************************************************
+* Copyright 2006-2024 by meo. All rights reserved. Some
+* individual files may be covered by other copyrights.
+* 
+* This material was originally written and compiled by Meo Bogliolo
+* in Italy in 2006, 2007, 2008, 2009, ... Other material was
+* contributed as noted elsewhere. 
+*
+* Redistribution and use in source and binary forms are permitted
+* provided that this entire copyright notice is duplicated in all such
+* copies. No charge, other than an "at-cost" distribution fee, may be
+* charged for copies, derivations, or distributions of this material
+* without the express written consent of the copyright holders.
+*
+* THIS SOFTWARE IS PROVIDED "AS IS" AND WITHOUT ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, WITHOUT LIMITATION, THE IMPLIED WARRANTIES OF
+* MERCHANTIBILITY AND FITNESS FOR ANY PARTICULAR PURPOSE.
+************************************************************************/
