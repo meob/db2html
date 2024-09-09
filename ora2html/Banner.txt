@@ -1,0 +1,2 @@
+SCHEMA_INFO_4_EXPIMP
+Il presente tool si connette come SYSTEM e genera informazioni e comandi utili per export/import di schema specifici.

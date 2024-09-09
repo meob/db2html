@@ -1,0 +1,19 @@
+-- Impostazione parametri di esecuzione per SCHEMA_INFO_4_EXPIMP                                                                       
+--                                                                                                                                     
+-- _USER_LIST l'elenco degli user di cui estrarre le informazioni                                                                      
+-- l'elenco va racchiuso tra virgolette;                                                                                               
+-- i nomi vanno indicati tenendo conto dei aratteri maiuscoli/minuscoli, racchiusi tra apici singoli e separati da virgole             
+-- ad esempio: DEFINE _USER_LIST = "'USER1','USER2'"                                                                                   
+-- per considerare tutti gli user, impostare: DEFINE _USER_LIST = "select username from all_users"                                     
+DEFINE _USER_LIST = "select username from all_users"                                                                                                     
+--                                                                                                                                     
+-- _COMPILE_INVALID_OBJECTS consente di eseguire la compilazione degli oggetti invalidi di ciascuno schema prima di                    
+-- proseguire con la loro elencazione                                                                                                  
+DEFINE _COMPILE_INVALID_OBJECTS = "NO"                                                                         
+--                                                                                                                                     
+-- _FILE_NAME_REPLACE... consentono di sostituire stringhe nei path/nomi dei datafile utilizzati nei comandi di creazione              
+-- Da utilizzare neld caso in cui i path/nomi dei datafile del db di origine sono diversi dai corrispondenti del db di destinazione    
+-- ..._Before è la stringa da cercare nel path/nome                                                                                    
+-- ..._After è la stringa da inserire nel path/nome al posto della ..._Before                                                          
+DEFINE _FILE_NAME_REPLACE_1_Before = ""                                                                   
+DEFINE _FILE_NAME_REPLACE_1_After  = ""                                                                    
