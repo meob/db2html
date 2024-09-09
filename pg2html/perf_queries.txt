@@ -1,0 +1,333 @@
+-- Query "semplificata" per la ricerca di indici mancanti in PostgreSQL ...
+WITH fk_actions ( code, action ) AS (
+    VALUES ( 'a', 'error' ),
+        ( 'r', 'restrict' ),
+        ( 'c', 'cascade' ),
+        ( 'n', 'set null' ),
+        ( 'd', 'set default' )
+),
+fk_list AS (
+    SELECT pg_constraint.oid as fkoid, conrelid, confrelid as parentid,
+        conname, relname, nspname,
+        fk_actions_update.action as update_action,
+        fk_actions_delete.action as delete_action,
+        conkey as key_cols
+    FROM pg_constraint
+        JOIN pg_class ON conrelid = pg_class.oid
+        JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
+        JOIN fk_actions AS fk_actions_update ON confupdtype = fk_actions_update.code
+        JOIN fk_actions AS fk_actions_delete ON confdeltype = fk_actions_delete.code
+    WHERE contype = 'f'
+),
+fk_attributes AS (
+    SELECT fkoid, conrelid, attname, attnum
+    FROM fk_list
+        JOIN pg_attribute
+            ON conrelid = attrelid
+            AND attnum = ANY( key_cols )
+    ORDER BY fkoid, attnum
+),
+fk_cols_list AS (
+    SELECT fkoid, array_agg(attname) as cols_list
+    FROM fk_attributes
+    GROUP BY fkoid
+),
+index_list AS (
+    SELECT indexrelid as indexid,
+        pg_class.relname as indexname,
+        indrelid,
+        indkey,
+        indpred is not null as has_predicate,
+        pg_get_indexdef(indexrelid) as indexdef
+    FROM pg_index
+        JOIN pg_class ON indexrelid = pg_class.oid
+    WHERE indisvalid
+),
+fk_index_match AS (
+    SELECT fk_list.*,
+        indexid,
+        indexname,
+        indkey::int[] as indexatts,
+        has_predicate,
+        indexdef,
+        array_length(key_cols, 1) as fk_colcount,
+        array_length(indkey,1) as index_colcount,
+        cols_list
+    FROM fk_list
+        JOIN fk_cols_list USING (fkoid)
+        LEFT OUTER JOIN index_list
+            ON conrelid = indrelid
+            AND (indkey::int2[])[0:(array_length(key_cols,1) -1)] @> key_cols
+),
+fk_index_check AS (
+    SELECT 'No index' as issue, *
+    FROM fk_index_match
+    WHERE indexid IS NULL
+)
+SELECT nspname as schema_name,
+       relname as table_name,
+       conname as fk_name,
+       issue
+  FROM fk_index_check
+ ORDER BY table_name, fk_name;
+
+
+-- Query originale (considera piu' casi ed esclude le tabelle di piccole dimensioni o poco utilizzate)
+-- https://github.com/pgexperts/pgx_scripts/blob/master/indexes/fk_no_index.sql
+WITH fk_actions ( code, action ) AS (
+    VALUES ( 'a', 'error' ),
+        ( 'r', 'restrict' ),
+        ( 'c', 'cascade' ),
+        ( 'n', 'set null' ),
+        ( 'd', 'set default' )
+),
+fk_list AS (
+    SELECT pg_constraint.oid as fkoid, conrelid, confrelid as parentid,
+        conname, relname, nspname,
+        fk_actions_update.action as update_action,
+        fk_actions_delete.action as delete_action,
+        conkey as key_cols
+    FROM pg_constraint
+        JOIN pg_class ON conrelid = pg_class.oid
+        JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
+        JOIN fk_actions AS fk_actions_update ON confupdtype = fk_actions_update.code
+        JOIN fk_actions AS fk_actions_delete ON confdeltype = fk_actions_delete.code
+    WHERE contype = 'f'
+),
+fk_attributes AS (
+    SELECT fkoid, conrelid, attname, attnum
+    FROM fk_list
+        JOIN pg_attribute
+            ON conrelid = attrelid
+            AND attnum = ANY( key_cols )
+    ORDER BY fkoid, attnum
+),
+fk_cols_list AS (
+    SELECT fkoid, array_agg(attname) as cols_list
+    FROM fk_attributes
+    GROUP BY fkoid
+),
+index_list AS (
+    SELECT indexrelid as indexid,
+        pg_class.relname as indexname,
+        indrelid,
+        indkey,
+        indpred is not null as has_predicate,
+        pg_get_indexdef(indexrelid) as indexdef
+    FROM pg_index
+        JOIN pg_class ON indexrelid = pg_class.oid
+    WHERE indisvalid
+),
+fk_index_match AS (
+    SELECT fk_list.*,
+        indexid,
+        indexname,
+        indkey::int[] as indexatts,
+        has_predicate,
+        indexdef,
+        array_length(key_cols, 1) as fk_colcount,
+        array_length(indkey,1) as index_colcount,
+        round(pg_relation_size(conrelid)/(1024^2)::numeric) as table_mb,
+        cols_list
+    FROM fk_list
+        JOIN fk_cols_list USING (fkoid)
+        LEFT OUTER JOIN index_list
+            ON conrelid = indrelid
+            AND (indkey::int2[])[0:(array_length(key_cols,1) -1)] @> key_cols
+
+),
+fk_perfect_match AS (
+    SELECT fkoid
+    FROM fk_index_match
+    WHERE (index_colcount - 1) <= fk_colcount
+        AND NOT has_predicate
+        AND indexdef LIKE '%USING btree%'
+),
+fk_index_check AS (
+    SELECT 'no index' as issue, *, 1 as issue_sort
+    FROM fk_index_match
+    WHERE indexid IS NULL
+    UNION ALL
+    SELECT 'questionable index' as issue, *, 2
+    FROM fk_index_match
+    WHERE indexid IS NOT NULL
+        AND fkoid NOT IN (
+            SELECT fkoid
+            FROM fk_perfect_match)
+),
+parent_table_stats AS (
+    SELECT fkoid, tabstats.relname as parent_name,
+        (n_tup_ins + n_tup_upd + n_tup_del + n_tup_hot_upd) as parent_writes,
+        round(pg_relation_size(parentid)/(1024^2)::numeric) as parent_mb
+    FROM pg_stat_user_tables AS tabstats
+        JOIN fk_list
+            ON relid = parentid
+),
+fk_table_stats AS (
+    SELECT fkoid,
+        (n_tup_ins + n_tup_upd + n_tup_del + n_tup_hot_upd) as writes,
+        seq_scan as table_scans
+    FROM pg_stat_user_tables AS tabstats
+        JOIN fk_list
+            ON relid = conrelid
+)
+SELECT nspname as schema_name,
+    relname as table_name,
+    conname as fk_name,
+    issue,
+    table_mb,
+    writes,
+    table_scans,
+    parent_name,
+    parent_mb,
+    parent_writes,
+    cols_list,
+    indexdef
+FROM fk_index_check
+    JOIN parent_table_stats USING (fkoid)
+    JOIN fk_table_stats USING (fkoid)
+WHERE table_mb > 5
+    AND ( writes > 1000
+        OR parent_writes > 1000
+        OR parent_mb > 10 )
+ORDER BY issue_sort, table_scans DESC, table_mb DESC, table_name, fk_name;
+
+
+-- Creazione automatica DDL per gli indici FK mancanti su tabelle di dimensioni/accesso significativi
+WITH fk_actions ( code, action ) AS (
+    VALUES ( 'a', 'error' ),
+        ( 'r', 'restrict' ),
+        ( 'c', 'cascade' ),
+        ( 'n', 'set null' ),
+        ( 'd', 'set default' ) ),
+fk_list AS (
+    SELECT pg_constraint.oid as fkoid, conrelid, confrelid as parentid,
+        conname, relname, nspname,
+        fk_actions_update.action as update_action,
+        fk_actions_delete.action as delete_action,
+        conkey as key_cols
+    FROM pg_constraint
+        JOIN pg_class ON conrelid = pg_class.oid
+        JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
+        JOIN fk_actions AS fk_actions_update ON confupdtype = fk_actions_update.code
+        JOIN fk_actions AS fk_actions_delete ON confdeltype = fk_actions_delete.code
+    WHERE contype = 'f' ),
+fk_attributes AS (
+    SELECT fkoid, conrelid, attname, attnum
+    FROM fk_list
+        JOIN pg_attribute
+            ON conrelid = attrelid
+            AND attnum = ANY( key_cols )
+    ORDER BY fkoid, attnum ),
+fk_cols_list AS (
+    SELECT fkoid, array_agg(attname) as cols_list
+    FROM fk_attributes
+    GROUP BY fkoid ),
+index_list AS (
+    SELECT indexrelid as indexid,
+        pg_class.relname as indexname,
+        indrelid,
+        indkey,
+        indpred is not null as has_predicate,
+        pg_get_indexdef(indexrelid) as indexdef
+    FROM pg_index
+        JOIN pg_class ON indexrelid = pg_class.oid
+    WHERE indisvalid ),
+fk_index_match AS (
+    SELECT fk_list.*,
+        indexid,
+        indexname,
+        indkey::int[] as indexatts,
+        has_predicate,
+        indexdef,
+        array_length(key_cols, 1) as fk_colcount,
+        array_length(indkey,1) as index_colcount,
+        round(pg_relation_size(conrelid)/(1024^2)::numeric) as table_mb,
+        cols_list
+    FROM fk_list
+        JOIN fk_cols_list USING (fkoid)
+        LEFT OUTER JOIN index_list
+            ON conrelid = indrelid
+            AND (indkey::int2[])[0:(array_length(key_cols,1) -1)] @> key_cols ),
+fk_perfect_match AS (
+    SELECT fkoid
+    FROM fk_index_match
+    WHERE (index_colcount - 1) <= fk_colcount
+        AND NOT has_predicate
+        AND indexdef LIKE '%USING btree%' ),
+fk_index_check AS (
+    SELECT 'no index' as issue, *, 1 as issue_sort
+    FROM fk_index_match
+    WHERE indexid IS NULL ),
+parent_table_stats AS (
+    SELECT fkoid, tabstats.relname as parent_name,
+        (n_tup_ins + n_tup_upd + n_tup_del + n_tup_hot_upd) as parent_writes,
+        round(pg_relation_size(parentid)/(1024^2)::numeric) as parent_mb
+    FROM pg_stat_user_tables AS tabstats
+        JOIN fk_list
+            ON relid = parentid ),
+fk_table_stats AS (
+    SELECT fkoid,
+        (n_tup_ins + n_tup_upd + n_tup_del + n_tup_hot_upd) as writes,
+        seq_scan as table_scans
+    FROM pg_stat_user_tables AS tabstats
+        JOIN fk_list
+            ON relid = conrelid )
+SELECT 'create index on ' || nspname || '.' || relname || ' (' ||
+       array_to_string(cols_list, ',') || ');' AS ddl
+  FROM fk_index_check
+  JOIN parent_table_stats USING (fkoid)
+  JOIN fk_table_stats USING (fkoid)
+ WHERE table_mb > 5
+   AND ( writes > 1000
+         OR parent_writes > 1000
+         OR parent_mb > 10 )
+ ORDER BY relname;
+
+-- Drop indici non unique mai utilizzati
+SELECT indexrelid::regclass as index, relid::regclass as table, 'DROP INDEX ' || indexrelid::regclass || ';' AS ddl
+  FROM pg_stat_user_indexes
+  JOIN pg_index USING (indexrelid)
+ WHERE idx_scan = 0
+   AND indisunique is false; 
+
+
+-- Altre query prestazionali utili
+
+SELECT schemaname, relname, coalesce(idx_tup_fetch,0) + coalesce(seq_tup_read,0) AS Total_read
+  FROM   pg_stat_user_tables
+ ORDER BY Total_read desc
+ LIMIT 20;
+
+SELECT relid, relname, heap_blks_read, heap_blks_hit, idx_blks_read, idx_blks_hit 
+  FROM   pg_statio_user_tables 
+ ORDER BY heap_blks_read desc;
+
+SELECT relid, indexrelid, relname, indexrelname, idx_blks_read, idx_blks_hit 
+  FROM   pg_statio_user_indexes 
+ ORDER BY idx_blks_read desc;
+
+select sum( xact_commit/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) ) TPS,
+       sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) ) IOcpu
+  from pg_stat_database;
+
+
+SELECT substr(query,1,80) query, calls, total_time, rows,  round(total_time*1000/calls)/1000 AS avg_time,
+       100.0*shared_blks_hit/nullif(shared_blks_hit + shared_blks_read, 0) AS hit_ratio
+  FROM   pg_stat_statements 
+ ORDER BY total_time DESC 
+ LIMIT 10;
+ 
+
+SELECT schemaname, relname, seq_scan-idx_scan AS too_much_seq,
+       case when seq_scan-idx_scan>0 THEN 'Missing Index?' ELSE 'OK' END,
+       pg_relation_size(format('%I.%I', schemaname, relname)::regclass) AS rel_size, seq_scan, idx_scan
+  FROM pg_stat_user_tables
+ WHERE pg_relation_size(format('%I.%I', schemaname, relname)::regclass)>80000
+ ORDER BY too_much_seq DESC;
+
+
+http://www.craigkerstiens.com/2012/10/01/understanding-postgres-performance/
+
+
+
