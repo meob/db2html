@@ -247,7 +247,7 @@ select ' <td>', decode(substr(banner,instr(banner, '.',1,1)-2, instr(banner, '.'
                        '12.2', 'NO', '18.0', 'NO', '19.0', 'YES', '21.0', 'NO', '23.0', 'YES',
                                'NO')
   from v$version where banner like 'Oracle%'; 
-select ' <td>Last Release Updates (12.2+): <b>23.4</b>, 21.15, <b>19.24</b>; 20.2, 18.14, 12.2.0.1.220118' from dual;
+select ' <td>Last Release Updates (12.2+): <b>23.4</b>, 21.16, <b>19.25</b>; 20.2, 18.14, 12.2.0.1.220118' from dual;
 select ' <br>Last Patch Set Updates (12.1-): 12.1.0.2.221018, 11.2.0.4.201020, 10.2.0.5.19; 9.2.0.8, 8.1.7.4, 7.3.4.5' from dual;
 select '</table><p>' from dual;
 select '<P><table border="2"><tr><td><b>Versions</b></td></tr>' from dual;
@@ -1593,7 +1593,7 @@ select '<P>Statistics generated on: '||
  to_char(sysdate,'DD-MON-YYYY HH24:MI:SS')||'<P>' 
 from dual;
 
-select '<br> Copyright: 2024 meob - License: GNU General Public License v3.0 <p></body></html>' from dual;
+select '<br> Copyright: 2024 meob - License: GNU General Public License v3.0' from dual;
 select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' from dual;
 
 set newpage 1
