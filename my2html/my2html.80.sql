@@ -1,7 +1,7 @@
 -- Program:	 my2html.80.sh
 -- Info:	 MySQL (8.0) DBA Database SQL report in HTML
 -- Date:         2018-04-19
--- Version:      1.0.23b: latest releases (2024-08-15) (a) many fixes (b) latest versions update
+-- Version:      1.0.23c: latest releases (2024-08-15) (a) many fixes (b) latest versions update (c) minor changes
 -- Author:       Bartolomeo Bogliolo mail@meo.bogliolo.name
 -- License:      GPL
 --
@@ -54,7 +54,7 @@ select '</ul></table><p><hr>' ;
 select '<P>Statistics generated on: ', now();
 select ' by: ', user(), 'as: ',current_user();
  
-select 'using: <I><b>my2html.80.sh</b> v.1.0.23b';
+select 'using: <I><b>my2html.80.sh</b> v.1.0.23c';
 select '<br>Software by ';
 select '<A HREF="http://meoshome.it.eu.org/#dwn">Meo</A></I><p><HR>';
 
@@ -142,9 +142,9 @@ select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0', '10.11','1
 
 select ' <td>', if(SUBSTRING_INDEX(version(),'-',1)
     in ('8.4.2','8.0.39','5.7.44', 
-        '8.4.1','8.0.38','5.7.44'), 'YES', 'NO') ; -- last2 MySQL updates
+        '8.4.3','8.0.40','5.7.44'), 'YES', 'NO') ; -- last2 MySQL updates
 
-select '<td>Latest Releases: <b>8.4.2</b>, <b>8.0.39</b>; 9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
+select '<td>Latest Releases: <b>8.4.3</b>, <b>8.0.40</b>; 9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
 select ' <br>Latest Releases (MariaDB): <b>11.4.2</b>, 11.3.2, 11.2.4, 11.1.5, 11.0.6, <b>10.11.8</b>, 10.10.7, <b>10.6.18</b>, 10.5.25, 10.4.34;';
 select '     10.9.8, 10.8.8, 10.7.8, 10.3.39, 10.2.44, 10.1.48, 10.0.38, 5.5.68';
 select '</table><p><hr>' ;
@@ -736,11 +736,23 @@ select '<tr><td>',trx_mysql_thread_id, '<td>',trx_id, '<td>',trx_state, '<td>',t
 select '</table>' ;
 
 select '<P><A NAME="innodb_lock"></A>' ;
-select '<P><table border="2"><tr><td><b>Waiting Locks</b></td></tr>' ;
+select '<P><table border="2"><tr><td><b>Waiting Locks</b> (performance_schema)</td></tr>' ;
 select '<tr><td><b>TRX Id</b><td><b>Lock Id</b><td><b>Blocking TRX</b><td><b>Blocking Lock</b>';
 select '<tr><td>',REQUESTING_ENGINE_TRANSACTION_ID, '<td>',REQUESTING_ENGINE_LOCK_ID,
        '<td>', BLOCKING_ENGINE_TRANSACTION_ID, '<td>', BLOCKING_ENGINE_LOCK_ID
   from performance_schema.data_lock_waits;
+select '</table>' ;
+select '<P><A NAME="innodb_lock2"></A>' ;
+select '<P><table border="2"><tr><td><b>Waiting Locks</b> (sys)</td></tr>' ;
+select '<tr><td><b>TRX Id</b><td><b>PID</b><td><b>Query</b>';
+select '    <td><b>Blocking TRX Id</b><td><b>PID</b><td><b>Query</b>';
+SELECT '<tr><td>',waiting_trx_id,
+  '<td>', waiting_pid,
+  '<td>', waiting_query,
+  '<td>', blocking_trx_id,
+  '<td>', blocking_pid,
+  '<td>', blocking_query
+FROM sys.innodb_lock_waits;
 select '</table>' ;
 
 select '<P><table border="2"><tr><td><b>Locks</b></td></tr>' ;
@@ -1385,5 +1397,5 @@ select '<hr><P>Statistics generated on: ', now();
 select '<br>More info on';
 select '<A HREF="http://meoshome.it.eu.org#my">this site</A>' as info;
 
-select '<br> Copyright: 2024 meob - License: GNU General Public License v3.0 <p></body></html>' as info;
+select '<br> Copyright: 2024 meob - License: GNU General Public License v3.0' as info;
 select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' as info;
