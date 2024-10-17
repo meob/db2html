@@ -2,7 +2,7 @@
 -- Info:    PostgreSQL report in HTML
 --          Works with PostgreSQL 10 or sup. (tested and updated up to 16.x)
 -- Date:    2008-08-15
--- Version: 1.0.28a on 2024-08-15
+-- Version: 1.0.28c on 2024-08-15
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -42,7 +42,7 @@
 --                 (l) toplevel, lock count(*) (m) schema/object reorg, biggest partitioned objs, subpartitioning details
 --                 (n) pgstatspack stats (o) pg_buffercache stats moved to the optional/dynamic section, tablespaces space usage
 --                 (p) autoconf file (q) version update
---          1.0.28 pgvector, ... (a) minor changes, waitstart
+--          1.0.28 pgvector, ... (a) minor changes, waitstart (b) unidexed tables, minor changes (c) Cloud SQL and AlloyDB
 
 \pset tuples_only
 \pset fieldsep ' '
@@ -61,7 +61,7 @@ select '<li><A HREF="#ver">Versions</A></li>' as info;
 select '<li><A HREF="#dbs">Databases</A></li>' as info;
 select '<li><A HREF="#obj">Schema/Object Matrix</A></li>' as info;
 select '<li><A HREF="#tbs">Tablespaces</A></li>' as info;
-select '<li><A HREF="#usg">Space Usage</A> (<A HREF="#vacuum">VACUUM</A>) </li>' as info;
+select '<li><A HREF="#usg">Space Usage</A> (<A HREF="#vacuum">VACUUM</A>, <A HREF="#vacuum">Analyze</A>, <A HREF="#xid">XID</A>) </li>' as info;
 select '<li><A HREF="#usr">Users</A></li>' as info;
 select '<li><A HREF="#sql">Sessions</A></li>' as info;
 select '<li><A HREF="#lockd">Locks</A></li>' as info;
@@ -86,7 +86,7 @@ select '<P>Report generated on: '|| now();
 select 'on database: <b>'||current_database()||'</b>' as info;
 select 'by user: '||user as info;
 
-select 'using: <I><b>pg2html.sql</b> v.1.0.28a' as info;
+select 'using: <I><b>pg2html.sql</b> v.1.0.28c' as info;
 select '<br>Software by ' as info;
 select '<A HREF="http://meoshome.it.eu.org">Meo</A></I><p>'
 as info;
@@ -224,8 +224,10 @@ select '<tr><td>'||datname, '<td>',oid, '<td>',datdba::regrole::text,
  '<td align=right>'||pg_database_size(datname),
  '<td align=right>'||pg_size_pretty(pg_database_size(datname))
   from pg_database
- where not datistemplate;
-select '<tr><tr><td>TOTAL (MB)','<td>','<td>',
+ where not datistemplate
+ order by oid;
+select '<tr><tr><td>TOTAL (MB)','<td>',
+ '<td align=right>'||count(*),
  '<td align=right>'||trunc(sum(pg_database_size(datname))/(1024*1024)),
  '<td align=right>'||pg_size_pretty(sum(pg_database_size(datname))::int8)
 from pg_database;
@@ -270,7 +272,7 @@ select '<tr><td>'||nspname, '<td>'||rolname,
 from pg_class, pg_roles, pg_namespace
 where relowner=pg_roles.oid
   and relnamespace=pg_namespace.oid
---  and rolname not in ('enterprisedb')
+  and rolname not in ('enterprisedb')
 group by rolname, nspname
 order by nspname, rolname;
 select '<tr><td>TOTAL<td>TOTAL',
@@ -289,7 +291,9 @@ select '<tr><td>TOTAL<td>TOTAL',
  '<td align="right">'||coalesce(sum(case when relkind in ('r','p') THEN case when relispartition then 0 else 1 end else 0 end),0),
  '<td align="right">'||sum(case when relpersistence='u' THEN 1 ELSE 0 end),
  '<td align="right">'||sum(case when relpersistence='t' THEN 1 ELSE 0 end)
-from pg_class;
+from pg_class, pg_roles
+where relowner=pg_roles.oid
+  and rolname not in ('enterprisedb');
 select '</table><p>' as info;
 
 select '<P><A NAME="const"></A>' as info;
@@ -313,7 +317,7 @@ select '<tr><td>'||nspname,
  '<td align="right">'||count(*)
 from pg_constraint, pg_namespace
 where connamespace=pg_namespace.oid
-  and nspname NOT IN('information_schema', 'pg_catalog')
+  and nspname NOT IN('information_schema', 'pg_catalog', 'sys')
 group by nspname
 order by nspname;
 select '</table><p>' as info;
@@ -687,6 +691,7 @@ where not is_na
 ORDER BY 10 desc, 6 desc limit 5;
 select '</table><p>' as info;
 
+select '<A NAME="xid"></A>' as info;
 select '<P><table border="2"><tr><td><b>Database max age</b></td></tr>' as info;
 select '<tr><td><b>Database</b>',
  '<td><b>Max XID age</b>', 
@@ -695,14 +700,18 @@ as info;
 SELECT '<tr><td>'||datname||'<td align="right">', age(datfrozenxid), '<td>',
        (age(datfrozenxid)::numeric/2000000000*100)::numeric(4,2) as "% Wraparound"
   FROM pg_database
- ORDER BY 2 DESC;
+ ORDER BY 2 DESC
+ limit 32;
 select '</table><p>' as info;
 
 select '<P><table border="2"><tr><td><b>Relations too aged</b></td></tr>' as info;
 select '<tr><td><b>Schema</b>', '<td><b>Relation</b>',
- '<td><b>XID age</b>'
+ '<td><b>XID age</b>',  '<td><b>Overdue</b>',  '<td><b>HR Size</b>', '<td><b>HR Total Size</b>'
 as info;
-SELECT '<tr><td>'|| nspname ||'<td>'|| relname ||'<td align="right">', age(relfrozenxid)
+SELECT '<tr><td>'|| nspname ||'<td>'|| relname ||'<td align="right">', age(relfrozenxid),
+       '<td align="right">', age(relfrozenxid) - current_setting('vacuum_freeze_table_age')::integer,
+       '<td align="right">', pg_size_pretty(pg_relation_size(pg_class.oid)),
+       '<td align="right">', pg_size_pretty(pg_total_relation_size(pg_class.oid))
   FROM pg_class
   JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
  WHERE relkind = 'r'
@@ -820,60 +829,66 @@ select '</table><p></pre><hr>';
 
 select '<P><A NAME="sql"></A>' as info;
 select '<P><table><tr>';
-select '<td><table border="2"><tr><td><b>Per-User Sessions</b></td></tr>'
+select '<td valign="top"><table border="2"><tr><td><b>Per-User Sessions</b></td></tr>'
  as info;
 select '<tr><td><b>User</b>', '<td><b>Database</b>',
-       '<td><b>Count</b>', '<td><b>Active</b>' ;
+       '<td><b>Count</b>', '<td><b>Active</b>', '<td><b>Idle TX</b>';
 select '<tr><td>',usename,
        '<td>',datname,
  	'<td>', count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end)
+ 	'<td>', sum(case when state='active' then 1 else 0 end),
+ 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity
  group by usename, datname
  order by 6 desc, 1;
 select 	'<tr><td>TOTAL (', count(distinct usename),
  	' distinct users)<td><td>'|| count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end)
+ 	'<td>', sum(case when state='active' then 1 else 0 end),
+ 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity;
 select '</table>' as info;
 
-select '<td><table border="2"><tr><td><b>Per-Host Sessions</b></td></tr>'
+select '<td valign="top"><table border="2"><tr><td><b>Per-Host Sessions</b></td></tr>'
  as info;
-select '<tr><td><b>Host</b>', '<td><b>Database</b>',
-       '<td><b>Count</b>', '<td><b>Active</b>' ;
-select '<tr><td>', client_addr,
+select '<tr><td><b>Address</b>', '<td><b>Host</b>', '<td><b>Database</b>',
+       '<td><b>Count</b>', '<td><b>Active</b>', '<td><b>Idle TX</b>';
+select '<tr><td>',client_addr, '<td>',client_hostname,
        '<td>',datname,
  	'<td>', count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end)
+ 	'<td>', sum(case when state='active' then 1 else 0 end),
+ 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity
- group by client_addr, datname
- order by 6 desc, 2
+ group by client_addr, client_hostname, datname
+ order by 8 desc, 2
  limit 20;
 select 	'<tr><td>TOTAL (', count(distinct client_addr),
  	' distinct clients)<td><td>'|| count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end)
+ 	'<td>', sum(case when state='active' then 1 else 0 end),
+ 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity;
 select '</table>' as info;
 
-select '<td><table border="2"><tr><td><b>Per-APP Sessions</b></td></tr>'
+select '<td valign="top"><table border="2"><tr><td><b>Per-APP Sessions</b></td></tr>'
  as info;
 select '<tr><td><b>APP</b>', '<td><b>Database</b>',
-       '<td><b>Count</b>', '<td><b>Active</b>' ;
+       '<td><b>Count</b>', '<td><b>Active</b>', '<td><b>Idle TX</b>';
 select '<tr><td>', application_name,
        '<td>',datname,
  	'<td>', count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end)
+ 	'<td>', sum(case when state='active' then 1 else 0 end),
+ 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity
  group by application_name, datname
  order by 6 desc, 2
  limit 20;
 select 	'<tr><td>TOTAL (', count(distinct application_name),
  	' distinct applications)<td><td>'|| count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end)
+ 	'<td>', sum(case when state='active' then 1 else 0 end),
+ 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity;
 select '</table> </table>' as info;
 
-select '<P><table border="2"><tr><td><b>Sessions</b></td></tr>'
+select '<P><table border="2"><tr><td colspan="7"><b>Sessions</b> (now: ', now(),')'
  as info;
 select '<tr><td><b>Pid</b>',
  '<td><b>Database</b>',
@@ -899,7 +914,12 @@ select 	'<tr><td>',pid,
  	'<td>',query
   from pg_stat_activity
  where pid<>pg_backend_pid()
- order by state, query_start, pid;
+ order by case when state='active' then 0
+               when state='idle in transaction' then 1
+               when state='idle' then 3
+               when state is null then 4
+               else 2
+           end, query_start;
 select '</table><p><hr>' as info;
 
 select '<A NAME="lockd"></A>'  as info;
@@ -1070,6 +1090,23 @@ select '<tr><td>'||datname,
 	'<td>'|| stats_reset
 from pg_stat_database
 where datname not like 'template%';
+
+select '<tr><td>TOTAL (', count(*),
+	')<td align="right">'||sum(numbackends), 
+	'<td align="right">'||sum(xact_commit), 
+	'<td align="right"> ',
+	'<td align="right">'||sum(xact_rollback), 
+	'<td align="right">'||sum(blks_read), 
+	'<td align="right">'||sum(blks_hit), 
+   '<td align="right">', 
+	'<td align="right">'||sum(tup_returned), 
+	'<td align="right">'||sum(tup_fetched), 
+	'<td align="right">'||sum(tup_inserted), 
+	'<td align="right">'||sum(tup_updated), 
+	'<td align="right">'||sum(tup_deleted),
+	'<td>'|| min(stats_reset)
+from pg_stat_database
+where datname not like 'template%';
 select '</table><p>' as info;
 
 select '<P><table border="2"><tr><td><b>BG Writer statistics</b>' as info;
@@ -1127,6 +1164,41 @@ SELECT '<tr><td>Index',
 FROM 
   pg_statio_user_indexes;
 select '</table><p>' as info;
+
+select '<P><table border="2"><tr><td><b>Performance Statistics Summary</b> (preview)' as info;
+select '<tr><td><b>Statistic</b><td><b>Value</b>',
+ '<td><b>Suggested Value</b>',
+ '<td><b>Potential Action</b>';
+select '<tr><td>Connection usage %',' <td align="right">',
+       round(count(*)/current_setting('max_connections')::numeric*100,2),
+       '<td> &lt;80', '<td> '
+  from pg_stat_activity;
+select '<tr><td>Dead Tuples Max %',' <td align="right">',
+       round(max(n_dead_tup/(n_live_tup+n_dead_tup+0.0)*100.0),2),
+       '<td> &lt;20', '<td> '
+  from pg_stat_all_tables
+ where n_dead_tup>1000;
+select '<tr><td>Timed Checkpoint %',' <td align="right">',
+       round(100.0*checkpoints_timed/nullif(checkpoints_req+checkpoints_timed,0),2),
+       '<td> &gt;95', '<td> '
+  from pg_stat_bgwriter;
+select '<tr><td>Idle in Transaction',' <td align="right">',
+       count(*),
+       '<td> =0', '<td> '
+  from pg_stat_activity
+ where state='idle in transaction';
+select '<tr><td>Cache Hit Ratio %',' <td align="right">',
+       round(100.0 * blks_hit / (blks_hit + blks_read), 2),
+       '<td> &gt;95', '<td> '
+  from pg_stat_database
+ where datname=current_database();
+
+select '<tr><td>Custom Statistic %',' <td align="right">',
+       0,
+       '<td> &lt;80', '<td> '
+  from pg_stat_database
+ where datname=current_database();
+select '</table><p><hr>' as info;
 
 select '<P><A NAME="stmt"></A><P>' as info;
 \if :var_version_14p
@@ -1288,7 +1360,7 @@ select '<tr><td>TOTAL',
 select '</table><p><hr>' as info;
 
 select '<P><A NAME="tbl"></A><P>' as info;
-select '<P><table border="2"><tr><td colspan="3"><b>Table Statistics</b>' as info;
+select '<P><table border="2"><tr><td colspan="4"><b>Table Statistics</b>' as info;
 select '(reset: '|| coalesce(stats_reset::text, 'never') ||')' from pg_stat_database where datname=current_database();
 select '<tr><td><b>Schema</b><td><b>Table</b>',
  '<td><b>#Rows</b>',
@@ -1343,10 +1415,35 @@ select '<tr><td>'||schemaname,
  limit 20;
 select '</table><p>' as info;
 
+select '<P><pre><b>Tables without Unique Indexes</b><br>' as info;
+select tab.table_schema ||'.'|| tab.table_name
+from information_schema.tables tab
+left join pg_indexes tco 
+          on tab.table_schema = tco.schemaname
+          and tab.table_name = tco.tablename 
+          and tco.indexdef like 'CREATE UNIQUE%'
+where tab.table_type = 'BASE TABLE'
+      and tab.table_schema not in ('pg_catalog', 'information_schema', 'sys')
+      and tco. indexname is null
+order by tab.table_schema, tab.table_name;
+select '<br><br><b>Tables without Primary Key</b><br>' as info;
+select tab.table_schema ||'.'|| tab.table_name
+from information_schema.tables tab
+left join information_schema.table_constraints tco 
+          on tab.table_schema = tco.table_schema
+          and tab.table_name = tco.table_name 
+          and tco.constraint_type = 'PRIMARY KEY'
+where tab.table_type = 'BASE TABLE'
+      and tab.table_schema not in ('pg_catalog', 'information_schema', 'sys')
+      and tco.constraint_name is null
+order by tab.table_schema, tab.table_name;
+select '</pre><p><hr>' as info;
+
 select '<P><A NAME="idx"></A><P>' as info;
 select '<pre><P><table border="2"><tr><td><b>Index Usage - Details</b></td></tr></table>' ;
+select '<p><A NAME="constr2"></A>' as info;
 
-select '<P><table border="2"><tr><td><b>Defined indexes</b>' as info;
+select '<table border="2"><tr><td><b>Defined indexes</b>' as info;
 select '<tr><td><b>Schema</b><td><b>Type</b><td><b>Count</b>', '<td><b> Primary </b>',
        '<td><b> Unique </b>', '<td><b> Avg #keys </b>', '<td><b> Max #keys </b>';
 SELECT '<tr><td>',ns.nspname, '<td>',am.amname, '<td align="right">',count(*),
@@ -1358,14 +1455,13 @@ SELECT '<tr><td>',ns.nspname, '<td>',am.amname, '<td align="right">',count(*),
   JOIN pg_class tbl ON tbl.oid=idx.indrelid
   JOIN pg_am am ON am.oid=cls.relam
   JOIN pg_namespace ns ON cls.relnamespace = ns.oid
- WHERE ns.nspname not in ('pg_catalog', 'sys')
+ WHERE ns.nspname not in ('pg_catalog', 'sys', 'pg_toast')
    AND ns.nspname not like 'pg_toast_temp%'
  GROUP BY ns.nspname, am.amname
  ORDER BY ns.nspname, am.amname;
 select '</table><p>' as info;
 
-select '<P><A NAME="constr2"></A>' as info;
-select '<P><table border="2"><tr><td><b>Constraints</b></td></tr>' as info;
+select '<table border="2"><tr><td><b>Constraints</b></td></tr>' as info;
 select '<tr><td><b>Schema</b>',
  '<td><b> Primary</b>',
  '<td><b> Unique</b>',
@@ -1398,9 +1494,11 @@ SELECT '<tr><td>'|| n.nspname ||'<td>'|| c1.relname ||'<td>'|| c2.relname
    AND i.indisvalid = false;
 select '</table><p>' as info;
 
-select '<P><table border="2"><tr><td><b>Missing indexes</b><td colspan="6">(using foreign constraints)' as info;
+select '<P><table border="2"><tr><td><b>Missing indexes</b><td colspan="10">(using foreign constraints)' as info;
 select '<tr><td><b>Schema</b><td><b>Relation</b>', '<td><b>Contraint</b><td><b>Issue</b>',
-       '<td><b>#Table Scan</b><td><b>Parent</b>', '<td><b>Columns</b>';
+       '<td><b>Parent</b> <td><b>Columns</b>';
+select '<td><b>#Table Writes</b> <td><b>#Table Scan</b> <td><b>#Parent Scan</b>';
+select '<td><b>Table Size</b> <td><b>Parent Size</b>';
 WITH fk_actions ( code, action ) AS (
     VALUES ( 'a', 'error' ),
         ( 'r', 'restrict' ),
@@ -1454,7 +1552,7 @@ fk_index_match AS (
         indexdef,
         array_length(key_cols, 1) as fk_colcount,
         array_length(indkey,1) as index_colcount,
-        round(pg_relation_size(conrelid)/(1024^2)::numeric) as table_mb,
+        pg_relation_size(conrelid)::numeric as table_size,
         cols_list
     FROM fk_list
         JOIN fk_cols_list USING (fkoid)
@@ -1484,7 +1582,8 @@ fk_index_check AS (
 parent_table_stats AS (
     SELECT fkoid, tabstats.relname as parent_name,
         (n_tup_ins + n_tup_upd + n_tup_del + n_tup_hot_upd) as parent_writes,
-        round(pg_relation_size(parentid)/(1024^2)::numeric) as parent_mb
+        seq_scan as parent_scans,
+        pg_relation_size(parentid)::numeric as parent_size
     FROM pg_stat_user_tables AS tabstats
         JOIN fk_list
             ON relid = parentid
@@ -1501,17 +1600,21 @@ SELECT '<tr><td>', nspname as schema_name,
     '<td>', relname as table_name,
     '<td>', conname as fk_name,
     '<td>', issue,
-    '<td>', table_scans,
     '<td>', parent_name,
-    '<td>', cols_list
+    '<td>', cols_list,
+    '<td>', writes,
+    '<td>', table_scans,
+    '<td>', parent_scans,
+    '<td>', pg_size_pretty(table_size),
+    '<td>', pg_size_pretty(parent_size)
 FROM fk_index_check
     JOIN parent_table_stats USING (fkoid)
     JOIN fk_table_stats USING (fkoid)
-WHERE table_mb > 5
+WHERE table_size > 5*1024^2
     AND ( writes > 1000
         OR parent_writes > 1000
-        OR parent_mb > 10 )
-ORDER BY table_scans DESC, table_mb DESC, table_name, fk_name
+        OR parent_size > 10*1024^2 )
+ORDER BY table_scans DESC, table_size DESC, table_name, fk_name
  LIMIT 64;
 select '</table>' as info;
 
@@ -1640,7 +1743,8 @@ select '<tr><td><b>Object</b>',
  '<td><b>Type</b>',
  '<td><b>Owner</b>', '<td><b>Schema</b>',
  '<td><b>Rows</b>',
- '<td><b>Bytes</b>';
+ '<td><b>Size</b> (relpages main)'
+ '<td><b>Bytes</b> (relation)', '<td><b>HR Size</b> (total)';
 select '<tr><td>'||relname,
  '<td>'||case WHEN relkind='r' THEN 'Table' 
     WHEN relkind='i' THEN 'Index'
@@ -1648,7 +1752,9 @@ select '<tr><td>'||relname,
     ELSE relkind::text||'' end,
  '<td>'||rolname,  '<td>'||n.nspname,
  '<td align=right>'||to_char(reltuples,'999G999G999G999G999G999G999'),
- '<td align=right>'||to_char(relpages::INT8*8*1024,'999G999G999G999G999G999G999')
+ '<td align=right>'||to_char(relpages::INT8*8*1024,'999G999G999G999G999G999G999'),
+ '<td align=right>'||to_char(pg_relation_size(pg_class.oid),'999G999G999G999G999G999G999'),
+ '<td align=right>'||case WHEN relkind='r' THEN pg_size_pretty(pg_total_relation_size(pg_class.oid)) ELSE '' end
   from pg_class, pg_roles, pg_catalog.pg_namespace n
  where relowner=pg_roles.oid
    and n.oid=pg_class.relnamespace
@@ -2041,6 +2147,7 @@ select '<tr><td>',name,'<td class="split">',
    '<td>',unit, '<td>',source,
    '<td class="split">',setting
 from pg_settings
+where name not in ('cloudsql.supported_extensions')
 order by name; 
 select '</table><p><hr>' as info;
 
@@ -2048,7 +2155,7 @@ select '<P><A NAME="pghba"></A>'  as info;
 select '<P><table border="2"><tr><td><b>HBA file</b></td></tr>';
 select '<tr><td><p><pre>' as info;
 select pg_read_file('pg_hba.conf',1,10240);
-select '</pre></table><p><hr>' as info;
+select '</pre></table><p>' as info;
 -- SELECT * from pg_catalog.pg_read_file('pg_hba.conf');
 -- WITH f(name) AS (VALUES('pg_hba.conf'))
 -- SELECT pg_catalog.pg_read_file(name, 0, (pg_catalog.pg_stat_file(name)).size) FROM f;
@@ -2110,6 +2217,7 @@ SELECT
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pgrowlocks' and installed_version is not null) as pgrowlocks,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='postgis' and installed_version is not null) as postgis,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='vector' and installed_version is not null) as pgvector,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pgml' and installed_version is not null) as pgml,
     EXISTS (SELECT 1 FROM pg_settings WHERE name='max_prepared_transactions' and setting::int > 0 ) as xa_active,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='anon' and installed_version is not null) as anon,
     EXISTS (SELECT 1 FROM pg_tables WHERE tablename='pgstatspack_snap' and schemaname='public') as pgstatspack,
@@ -2119,6 +2227,9 @@ SELECT
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='aurora_stat_utils') as aurora,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='aurora_stat_utils' and installed_version is not null) as aurora_stat,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='apg_plan_mgmt' and installed_version is not null) as qpm,
+    EXISTS (SELECT 1 FROM pg_settings WHERE name='google_insights.enabled') as cloud_sql,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='google_columnar_engine') as alloydb,
+    EXISTS (SELECT 1 FROM pg_settings WHERE name='google_columnar_engine.enabled' and setting='on') as alloy_col,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='yb_pg_metrics') as yugabyte
 \gset opt_
 
@@ -2302,6 +2413,18 @@ select * from pg_stat_ssl;
 select '</pre></table><p><hr>' as info;
 \endif
 
+select '<P><A NAME="96_stats"></A>'  as info;
+select '<P><table border="2"><tr><td><b>Additional PG9.6+ Statistics</b></td></tr>';
+select '<tr><td><pre>' as info;
+\pset tuples_only
+\a
+select p.pid, p.phase, heap_blks_total, heap_blks_scanned, heap_blks_vacuumed, a.state, a.wait_event_type, a.wait_event, a.query
+  from pg_stat_progress_vacuum p, pg_stat_activity a
+ where p.pid=a.pid;
+
+\pset tuples_only
+\a
+select '</pre></table><p>' as info;
 
 \if :var_version_12p
 select '<P><A NAME="12_stats"></A>'  as info;
@@ -2387,7 +2510,7 @@ SELECT *
 
 \pset tuples_only
 \a
-select '</pre></table><p><hr>' as info;
+select '</pre></table><p>' as info;
 \endif
 
 
@@ -2461,6 +2584,7 @@ select '</table>';
 select '</pre></table><p>' as info;
 \endif
 
+select '<hr>';
 
 \if :opt_xa_active
 select '<P><A NAME="xa"></A>'  as info;
@@ -2686,10 +2810,21 @@ SELECT name, setting
  WHERE name like 'edb_audit%'
     OR name = 'edb_data_redaction';
 
-select *
-  from edb_redaction_policy;
-select *
-  from edb_redaction_column;
+select r.rdname, n.nspname||'.'||c.relname as relname, r.rdenable, pg_get_expr(r.rdexpr, r.rdrelid) as rd_condition
+  from edb_redaction_policy r, pg_class c, pg_namespace n
+ where r.rdrelid=c.oid
+   and c.relnamespace=n.oid
+ order by r.rdname, n.nspname, c.relname; 
+
+select r.rdname, n.nspname||'.'||c.relname as relname, aa.attname, rdscope, rdexception,
+       pg_get_expr(a.rdfuncexpr, a.rdrelid) as rd_function
+  from edb_redaction_policy r, pg_class c, edb_redaction_column a, pg_attribute aa, pg_namespace n
+ where r.rdrelid=c.oid
+   and c.relnamespace=n.oid
+   and a.rdpolicyid=r.oid
+   and r.rdrelid=aa.attrelid
+   and a.rdattnum=aa.attnum
+ order by r.rdname, n.nspname, c.relname; 
 
 \pset tuples_only
 \a
@@ -2745,6 +2880,51 @@ select '</pre></table><p><hr>' as info;
 \endif
 
 
+\if :opt_cloud_sql
+select '<P><A NAME="cloudsql"></A>'  as info;
+select '<P><table border="2"><tr><td><b>Cloud SQL</b></td></tr>';
+select '<tr><td><p><pre>' as info;
+\pset tuples_only
+\a
+
+select name as gcp_parameter_name, setting,
+       context, source, short_desc
+  from pg_settings
+ where (name like 'google%' or name like 'enable_google%' or name like 'cloudsql%')
+   and name non in ('cloudsql.supported_extensions')
+ order by name;
+
+\if :opt_alloydb
+select '<b>AlloyDB</b>';
+select *
+  from google_db_advisor_workload_report;
+
+\if :opt_alloy_col
+SELECT google_columnar_engine_memory_available();
+
+SELECT database_name, schema_name, relation_name, status, size, pg_size_pretty(size) as size_hr,
+       invalid_block_count, total_block_count
+  FROM g_columnar_relations;
+
+SELECT database_name, schema_name, relation_name, column_name, size_in_bytes, last_accessed_time
+  FROM g_columnar_columns;
+
+SELECT *
+FROM pg_stat_statements(TRUE) AS pg_stats
+     FULL JOIN g_columnar_stat_statements AS g_stats
+     ON pg_stats.userid = g_stats.user_id AND
+        pg_stats.dbid = g_stats.db_id AND
+        pg_stats.queryid = g_stats.query_id
+WHERE columnar_unit_read > 0;
+\endif
+\endif
+
+\pset tuples_only
+\a
+select '</pre></table><p><hr>' as info;
+\endif
+
+
 \if :opt_pgaudit
 select '<P><a id="pgaudit"></a>';
 select '<P><table border="2"><tr><td><b>PGAudit logged Objects</b></td></tr>' as info;
@@ -2762,7 +2942,7 @@ select '<P>Statistics generated on: '|| current_date || ' ' ||localtime as info;
 select '<br>More info on' as info;
 select '<A HREF="http://meoshome.it.eu.org#post">this site</A>' as info;
 
-select '<br> Copyright: 2024 meob - License: GNU General Public License v3.0 <p></body></html>' as info;
+select '<br> Copyright: 2024 meob - License: GNU General Public License v3.0' as info;
 select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' as info;
 \pset tuples_only
 \a
