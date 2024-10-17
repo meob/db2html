@@ -19,7 +19,7 @@
 --          1.0.9 Users and grants, detached parts, errors, latest versions update (a) latest versions update (b) minor updates
 --          1.0.10 Latest versions update (2023-08-15)
 --          1.0.11 Latest versions update (2024-02-14). (a) metric_log and asynchronous_metric_log statistics
---          1.0.12 Latest versions update (2024-08-15).
+--          1.0.12 Latest versions update (2024-08-15). (a) version update
 --
 -- Usage: clickhouse-client -mn --ignore-error < ch2html.sql > `hostname`.8123.htm
 
@@ -60,7 +60,7 @@ select '<li><A HREF="#os">Operating System info</A></li>' ;
 select '</ul></table><p><hr>' ;
  
 select '<P>Statistics generated on: ', now();
-select 'using: <I><b>ch2html.sh</b> v.1.0.12';
+select 'using: <I><b>ch2html.sh</b> v.1.0.12a';
 select '<br>Software by ';
 select '<A HREF="http://meoshome.it.eu.org/">Meo</A></I><p><hr>';
 
@@ -122,7 +122,7 @@ select '<td>', if(value>=23000000,'Yes','No')
 select '<td>', if(value>=22000000,'Yes','No')
   from system.metrics
  where metric='VersionInteger';
-select '<td>Latest Releases: 24.7.3.42, 24.3.7.30-lts, 23.8.16.40−lts, 23.3.22.3−lts; 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
+select '<td>Latest Releases: 24.9.2.42, 24.8.5.115-lts, 24.3.12.75-lts, 23.8.16.40−lts, 23.3.22.3−lts; 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
 select '</table><p>' ;
 
 select '<P><A NAME="obj"></A>' ;
