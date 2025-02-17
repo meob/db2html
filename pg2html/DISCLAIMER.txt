@@ -1,5 +1,5 @@
 /***********************************************************************
-* Copyright 2007-2024 by meo. All rights reserved. Some
+* Copyright 2007-2025 by meo. All rights reserved. Some
 * individual files may be covered by other copyrights.
 * 
 * This material was originally written and compiled by Meo Bogliolo

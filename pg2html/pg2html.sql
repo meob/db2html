@@ -1,8 +1,8 @@
 -- Program: pg2html.sql
 -- Info:    PostgreSQL report in HTML
---          Works with PostgreSQL 10 or sup. (tested and updated up to 16.x)
+--          Works with PostgreSQL 10 or sup. (tested and updated up to 17.x)
 -- Date:    2008-08-15
--- Version: 1.0.28c on 2024-08-15
+-- Version: 1.0.30 on 2025-02-14
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -42,7 +42,9 @@
 --                 (l) toplevel, lock count(*) (m) schema/object reorg, biggest partitioned objs, subpartitioning details
 --                 (n) pgstatspack stats (o) pg_buffercache stats moved to the optional/dynamic section, tablespaces space usage
 --                 (p) autoconf file (q) version update
---          1.0.28 pgvector, ... (a) minor changes, waitstart (b) unidexed tables, minor changes (c) Cloud SQL and AlloyDB
+--          1.0.28 pgvector, ... (a) minor changes, waitstart (b) unidexed tables, minor changes (c) Cloud SQL and AlloyDB (d) FDW
+--          1.0.29 Latest versions update, minor changes. (a) Latest versions update (b) amcheck, bug fixing (c) PG18 stub
+--          1.0.30 Latest versions update, pg_largeobject.
 
 \pset tuples_only
 \pset fieldsep ' '
@@ -50,7 +52,7 @@
 \a
 \o pg.htm
 
-select '<!doctype html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="ux3.css" /><title>pg2html - PostgreSQL Statistics</title></head><body>' as info;
+select '<!doctype html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="ux3.css" /><title>pg2html - PostgreSQL Statistics</title></head><body>';
 select '<h1 align=center>PostgreSQL - '||current_database()||'</h1>' as info;
 
 select '<P><A NAME="top"></A>' as info;
@@ -61,7 +63,7 @@ select '<li><A HREF="#ver">Versions</A></li>' as info;
 select '<li><A HREF="#dbs">Databases</A></li>' as info;
 select '<li><A HREF="#obj">Schema/Object Matrix</A></li>' as info;
 select '<li><A HREF="#tbs">Tablespaces</A></li>' as info;
-select '<li><A HREF="#usg">Space Usage</A> (<A HREF="#vacuum">VACUUM</A>, <A HREF="#vacuum">Analyze</A>, <A HREF="#xid">XID</A>) </li>' as info;
+select '<li><A HREF="#usg">Space Usage</A> (<A HREF="#vacuum">VACUUM</A>, <A HREF="#vacuum">Analyze</A>, <A HREF="#xid">XID</A>)';
 select '<li><A HREF="#usr">Users</A></li>' as info;
 select '<li><A HREF="#sql">Sessions</A></li>' as info;
 select '<li><A HREF="#lockd">Locks</A></li>' as info;
@@ -78,18 +80,14 @@ select '<li><A HREF="#ext">Extensions</A></li>' as info;
 select '<li><A HREF="#nls">NLS Settings</A></li>' as info;
 select '<li><A HREF="#par">Parameters</A></li>' as info;
 select '<li><A HREF="#logs">Logs (log, wal)</A></li>' as info;
-select '<li><A HREF="#opt">Additional Statistics</A></li>' as info;
+select '<li><A HREF="#opt">Additional Statistics</A>';
+select '  (<A HREF="#opt">Extensions</A>, <A HREF="#96_stats">Version specific</A>, <A HREF="#fork">Forks</A>)' as info;
 select '</ul></table><p><hr>' as info;
  
 select '<P>Report generated on: '|| now();
- 
 select 'on database: <b>'||current_database()||'</b>' as info;
 select 'by user: '||user as info;
-
-select 'using: <I><b>pg2html.sql</b> v.1.0.28c' as info;
-select '<br>Software by ' as info;
-select '<A HREF="http://meoshome.it.eu.org">Meo</A></I><p>'
-as info;
+select 'using: <I><b>pg2html.sql</b> v.1.0.30' as info;
  
 select '<hr><P><A NAME="status"></A>' as info;
 select '<P><table border="2"><tr><td><b>Summary</b></td></tr>' as info;
@@ -182,6 +180,9 @@ SELECT cast(current_setting('server_version_num')as integer)>= 160000 as version
 SELECT cast(current_setting('server_version_num')as integer)>= 170000 as version_17p
 \gset var_
 
+SELECT cast(current_setting('server_version_num')as integer)>= 180000 as version_18p
+\gset var_
+
 
 select '<P><A NAME="ver"></A>' as info;
 select '<P><table border="2"><tr><td><b>Version</b></td></tr>' as info;
@@ -195,22 +196,22 @@ select '<tr><td><b>Version</b>',
  '<td><b> Notes</b>';
 SELECT '<tr><td>'||substring(version() for  position('on' in version())-1);
 SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num') as integer)/100)
-  in (1200, 1300, 1400, 1500, 1600) THEN 'YES'
+  in (1300, 1400, 1500, 1600, 1700) THEN 'YES'
   ELSE 'NO' END;
 SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num')
   as integer)/100)
-  in (1400, 1500, 1600) THEN 'YES'
+  in (1500, 1600, 1700) THEN 'YES'
   ELSE 'NO' END; -- last2 release
 SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
-  in (90624,100023, 110022,110021,110020,
-  120020,120019,120018,
-  130016,130015,130014,
-  140013,140012,140011,
-  150008,150007,150006,
-  160004,160003,160002) THEN 'YES'
+  in (90624,100023, 110022,110021,110020,120021,
+  130019,130018,130020,
+  140016,140015,140017,
+  150011,150010,150012,
+  160007,160006,160008,
+  170003,170003,170004) THEN 'YES'
   ELSE 'NO' END; -- last2 update
-select '<td>Latest Releases: 16.4, 15.8, 14.13, 13.16, 12.20';
-select '    <br>Latest Unsupported: 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
+select '<td>Latest Releases: 17.3, 16.7, 15.11, 14.16, 13.19';
+select '    <br>Latest Unsupported: 12.21, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
 select '    8.4.21, 8.3.23, 8.2.23, 8.1.23, 8.0.26; 7.4.30, 6.5.3';
 select '</table><p><hr>';
 
@@ -469,16 +470,20 @@ select '<tr><td>'||nspname, '<td>'||rolname,
 from pg_class, pg_roles, pg_namespace
 where relowner=pg_roles.oid
   and relnamespace=pg_namespace.oid
+  and rolname not in ('enterprisedb')
 group by rolname, nspname
 order by nspname, rolname;
-select '<tr><td>TOTAL<td>TOTAL',
+select '<tr><td>TOTAL<td> ',
  '<td align="right">'||to_char(sum(case when relkind='r' THEN 1 ELSE 0 end),'999G999G999G999G999G999G999'),
  '<td align="right">'||to_char(sum(case when relkind='r' THEN reltuples ELSE 0 end),'999G999G999G999G999G999G999'),
  '<td align="right">'||to_char(trunc(sum(case when relkind='r' THEN cast(1 as bigint)* relpages *8 ELSE 0 end)),'999G999G999G999G999G999G999'),
  '<td align="right">'||to_char(trunc(sum(case when relkind='i' THEN cast(1 as bigint)* relpages *8 ELSE 0 end)),'999G999G999G999G999G999G999'),
  '<td align="right">'||to_char(trunc(sum(case when relkind='t' THEN cast(1 as bigint)* relpages *8 ELSE 0 end)),'999G999G999G999G999G999G999'),
  '<td align="right">'||to_char(trunc(sum(cast(1 as bigint)* relpages *8)),'999G999G999G999G999G999G999')
-from pg_class;
+from pg_class, pg_roles, pg_namespace
+where relowner=pg_roles.oid
+  and relnamespace=pg_namespace.oid
+  and rolname not in ('enterprisedb');
 select '</table><p>' as info;
 
 select '<P><table border="2"><tr><td><b>Internals</b></td></tr>' as info;
@@ -620,7 +625,8 @@ FROM (
   ) AS s2
 ) AS s3
 where not is_na
-  and tblpages-est_tblpages_ff>0
+  and tblpages-est_tblpages_ff>1
+  and est_tblpages_ff>2
 ORDER BY 6 desc limit 20;
 
 select '<tr><td><b>Bloated tables (estimated percentage)</b></td></tr>' as info;
@@ -686,7 +692,7 @@ FROM (
   ) AS s2
 ) AS s3
 where not is_na
-  and tblpages-est_tblpages_ff>0
+  and tblpages-est_tblpages_ff>1
   and tblpages>2
 ORDER BY 10 desc, 6 desc limit 5;
 select '</table><p>' as info;
@@ -695,10 +701,9 @@ select '<A NAME="xid"></A>' as info;
 select '<P><table border="2"><tr><td><b>Database max age</b></td></tr>' as info;
 select '<tr><td><b>Database</b>',
  '<td><b>Max XID age</b>', 
- '<td><b>% Wraparound</b>'
-as info;
-SELECT '<tr><td>'||datname||'<td align="right">', age(datfrozenxid), '<td>',
-       (age(datfrozenxid)::numeric/2000000000*100)::numeric(4,2) as "% Wraparound"
+ '<td><b>% Wraparound</b>';
+SELECT '<tr><td>'||datname||'<td align="right">', age(datfrozenxid), '<td align="right">',
+       (age(datfrozenxid)::numeric/2000000000*100)::numeric(4,2) as wraparound
   FROM pg_database
  ORDER BY 2 DESC
  limit 32;
@@ -706,17 +711,31 @@ select '</table><p>' as info;
 
 select '<P><table border="2"><tr><td><b>Relations too aged</b></td></tr>' as info;
 select '<tr><td><b>Schema</b>', '<td><b>Relation</b>',
- '<td><b>XID age</b>',  '<td><b>Overdue</b>',  '<td><b>HR Size</b>', '<td><b>HR Total Size</b>'
-as info;
+ '<td><b>XID age</b>',  '<td><b>Overdue</b>',  '<td><b>HR Size</b>', '<td><b>HR Total Size</b>', '<td><b>% Wraparound</b>';
 SELECT '<tr><td>'|| nspname ||'<td>'|| relname ||'<td align="right">', age(relfrozenxid),
        '<td align="right">', age(relfrozenxid) - current_setting('vacuum_freeze_table_age')::integer,
        '<td align="right">', pg_size_pretty(pg_relation_size(pg_class.oid)),
-       '<td align="right">', pg_size_pretty(pg_total_relation_size(pg_class.oid))
+       '<td align="right">', pg_size_pretty(pg_total_relation_size(pg_class.oid)),
+       '<td align="right">', (age(relfrozenxid)::numeric/2000000000*100)::numeric(4,2)
   FROM pg_class
   JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
  WHERE relkind = 'r'
    AND age(relfrozenxid)> 2^28
  ORDER by 2 DESC;
+
+select '<tr><td><b>Most aged</b></td></tr>' as info;
+select '<tr><td><b>Schema</b>', '<td><b>Relation</b>',
+ '<td><b>XID age</b>',  '<td><b>Overdue</b>',  '<td><b>HR Size</b>', '<td><b>HR Total Size</b>', '<td><b>% Wraparound</b>';
+SELECT '<tr><td>'|| nspname ||'<td>'|| relname ||'<td align="right">', age(relfrozenxid),
+       '<td align="right">', age(relfrozenxid) - current_setting('vacuum_freeze_table_age')::integer,
+       '<td align="right">', pg_size_pretty(pg_relation_size(pg_class.oid)),
+       '<td align="right">', pg_size_pretty(pg_total_relation_size(pg_class.oid)),
+       '<td align="right">', (age(relfrozenxid)::numeric/2000000000*100)::numeric(4,2)
+  FROM pg_class
+  JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
+ WHERE relkind = 'r'
+ ORDER by 2 DESC
+ LIMIT 5;
 select '</table><p><hr>' as info;
 
 select '<P><A NAME="usr"></A>' as info;
@@ -829,7 +848,7 @@ select '</table><p></pre><hr>';
 
 select '<P><A NAME="sql"></A>' as info;
 select '<P><table><tr>';
-select '<td valign="top"><table border="2"><tr><td><b>Per-User Sessions</b></td></tr>'
+select '<td valign="top"><table border="2"><tr><td><b>Per-User Sessions</b> (First 20)</td></tr>'
  as info;
 select '<tr><td><b>User</b>', '<td><b>Database</b>',
        '<td><b>Count</b>', '<td><b>Active</b>', '<td><b>Idle TX</b>';
@@ -840,7 +859,8 @@ select '<tr><td>',usename,
  	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity
  group by usename, datname
- order by 6 desc, 1;
+ order by 6 desc, 1
+ limit 20;
 select 	'<tr><td>TOTAL (', count(distinct usename),
  	' distinct users)<td><td>'|| count(*),
  	'<td>', sum(case when state='active' then 1 else 0 end),
@@ -848,7 +868,7 @@ select 	'<tr><td>TOTAL (', count(distinct usename),
   from pg_stat_activity;
 select '</table>' as info;
 
-select '<td valign="top"><table border="2"><tr><td><b>Per-Host Sessions</b></td></tr>'
+select '<td valign="top"><table border="2"><tr><td><b>Per-Host Sessions</b> (First 20)</td></tr>'
  as info;
 select '<tr><td><b>Address</b>', '<td><b>Host</b>', '<td><b>Database</b>',
        '<td><b>Count</b>', '<td><b>Active</b>', '<td><b>Idle TX</b>';
@@ -862,13 +882,13 @@ select '<tr><td>',client_addr, '<td>',client_hostname,
  order by 8 desc, 2
  limit 20;
 select 	'<tr><td>TOTAL (', count(distinct client_addr),
- 	' distinct clients)<td><td>'|| count(*),
+ 	' distinct clients)<td><td><td>'|| count(*),
  	'<td>', sum(case when state='active' then 1 else 0 end),
  	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity;
 select '</table>' as info;
 
-select '<td valign="top"><table border="2"><tr><td><b>Per-APP Sessions</b></td></tr>'
+select '<td valign="top"><table border="2"><tr><td><b>Per-APP Sessions</b> (First 20)</td></tr>'
  as info;
 select '<tr><td><b>APP</b>', '<td><b>Database</b>',
        '<td><b>Count</b>', '<td><b>Active</b>', '<td><b>Idle TX</b>';
@@ -1165,6 +1185,67 @@ FROM
   pg_statio_user_indexes;
 select '</table><p>' as info;
 
+select '<P><table border="2">' as info;
+select '<tr><td><b>Database</b>',
+ '<td><b>Calls</b>',
+ '<td><b>Total Time</b>',
+ '<td><b>DBcpu</b>',
+ '<td><b>IOcpu</b>',
+ '<td><b>Stmt/sec.</b>'
+as info;
+\if :var_version_13p
+\if :var_version_14p
+select '<tr><td>', datname,
+       '<td align="right">'||sum(calls),
+       '<td align="right">'||round(sum(total_exec_time)),
+       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
+       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
+       '<td align="right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
+  from pg_stat_statements, pg_database, pg_stat_statements_info
+ where pg_stat_statements.dbid=pg_database.oid
+   and pg_stat_statements.toplevel
+ group by datname;
+select '<tr><td>TOTAL',
+       '<td align="right">'||sum(calls),
+       '<td align="right">'||round(sum(total_exec_time)),
+       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
+       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
+       '<td align="right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
+  from pg_stat_statements, pg_stat_statements_info where toplevel;
+\else
+select '<tr><td>', datname,
+       '<td align="right">'||sum(calls),
+       '<td align="right">'||round(sum(total_exec_time)),
+       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
+       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
+  from pg_stat_statements, pg_database
+ where pg_stat_statements.dbid=pg_database.oid
+ group by datname;
+select '<tr><td>TOTAL',
+       '<td align="right">'||sum(calls),
+       '<td align="right">'||round(sum(total_exec_time)),
+       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
+       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
+  from pg_stat_statements;
+\endif
+\else
+select '<tr><td>', datname,
+       '<td align="right">'||sum(calls),
+       '<td align="right">'||round(sum(total_time)),
+       '    <td>', round(sum( (total_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
+       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
+  from pg_stat_statements, pg_database
+ where pg_stat_statements.dbid=pg_database.oid
+ group by datname;
+select '<tr><td>TOTAL',
+       '<td align="right">'||sum(calls),
+       '<td align="right">'||round(sum(total_time)),
+       '    <td>',  round(sum( (total_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
+       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
+  from pg_stat_statements;
+\endif
+select '</table><p>' as info;
+
 select '<P><table border="2"><tr><td><b>Performance Statistics Summary</b> (preview)' as info;
 select '<tr><td><b>Statistic</b><td><b>Value</b>',
  '<td><b>Suggested Value</b>',
@@ -1218,18 +1299,21 @@ select '<tr><td><b>Query</b>',
  '<td><b>Max (sec.)</b>',
  '<td><b>Total Time</b>',
 -- '<td><b>I/O Time</b>',
- '<td><b>Rows</b>',
+ '<td><b>Blks read /Calls</b>',
+ '<td><b>Rows /Calls</b>',
  '<td><b>Hit Ratio%</b>'
 as info;
 
 \if :var_version_14p
 SELECT '<td><b>WAL MB</b> <td><b>T</b>';
-SELECT '<tr><td>'||replace(query,',',', '), ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
+SELECT '<tr><td>'||replace(substring(query,1,8192),',',', '),
+  ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
   '<td align="right">'||round((total_exec_time::numeric / nullif(calls::numeric, 0))/1000,3),
   '<td align="right">'||round((max_exec_time::numeric)/1000,3),
   '<td align="right">'||round(total_exec_time),
 -- '<td align="right">'||round(blk_read_time+blk_write_time),
-  '<td align="right">'||rows,
+  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0)),2),
+  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0)),2),
   '<td align="right">'||round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2)  AS hit_percent,
   '<td align="right">'||round((wal_bytes::numeric)/(1024*1024),0),
   '<td>'||CASE WHEN toplevel THEN 'T' ELSE 'F' END
@@ -1238,21 +1322,25 @@ SELECT '<tr><td>'||replace(query,',',', '), ' <td>'||pg_get_userbyid(userid), '<
 \else
  \if :var_version_13p
 SELECT '<td><b>WAL MB</b>';
-SELECT '<tr><td>'||replace(query,',',', '), ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
+SELECT '<tr><td>'||replace(substring(query,1,8192),',',', '),
+  ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
   '<td align="right">'||round((total_exec_time::numeric / nullif(calls::numeric, 0))/1000,3),
   '<td align="right">'||round((max_exec_time::numeric)/1000,3),
   '<td align="right">'||round(total_exec_time),
-  '<td align="right">'||rows,
+  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0)),2),
+  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0)),2),
   '<td align="right">'||round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2)  AS hit_percent,
   '<td align="right">'||round((wal_bytes::numeric)/(1024*1024),0)
   FROM pg_stat_statements 
  ORDER BY total_exec_time DESC LIMIT 20;
  \else
-SELECT '<tr><td>'||replace(query,',',', '), ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
+SELECT '<tr><td>'||replace(substring(query,1,8192),',',', '),
+  ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
   '<td align="right">'||round((total_time::numeric / nullif(calls::numeric, 0))/1000,3),
   '<td align="right">'||round((max_time::numeric)/1000,3),
   '<td align="right">'||round(total_time),
-  '<td align="right">'||rows,
+  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0)),2),
+  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0)),2),
   '<td align="right">'||round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2)  AS hit_percent
   FROM pg_stat_statements 
  ORDER BY total_time DESC LIMIT 20;
@@ -1270,17 +1358,20 @@ select '<tr><td><b>Query</b>',
  '<td><b>Max (sec.)</b>',
  '<td><b>Total Time</b>',
 -- '<td><b>I/O Time</b>',
- '<td><b>Rows</b>',
+ '<td><b>Blks read /Call</b>',
+ '<td><b>Rows /Call</b>',
  '<td><b>Hit Ratio%</b>'
 as info;
 \if :var_version_13p
 SELECT '<td><b>WAL MB</b>';
-SELECT '<tr><td>'||replace(query,',',', '), ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
+SELECT '<tr><td>'||replace(substring(query,1,8192),',',', '),
+  ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
   '<td align="right">'||round((total_exec_time::numeric / nullif(calls::numeric, 0))/1000,3),
   '<td align="right">'||round((max_exec_time::numeric)/1000,3),
   '<td align="right">'||round(total_exec_time),
 --  '<td align="right">'||round(blk_read_time+blk_write_time),
-  '<td align="right">'||rows,
+  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0))/1000,2),
+  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0))/1000,2),
   '<td align="right">'||round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2)  AS hit_percent,
   '<td align="right">'||round((wal_bytes::numeric)/(1024*1024),0)
   FROM pg_stat_statements 
@@ -1289,12 +1380,14 @@ SELECT '<tr><td>'||replace(query,',',', '), ' <td>'||pg_get_userbyid(userid), '<
  ORDER BY (total_exec_time::numeric/nullif(calls::numeric, 0)) DESC
  LIMIT 10;
 \else
-SELECT '<tr><td>'||replace(query,',',', '), ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
+SELECT '<tr><td>'||replace(substring(query,1,8192),',',', '),
+  ' <td>'||pg_get_userbyid(userid), '<td align="right">'||calls,
   '<td align="right">'||round((total_time::numeric / nullif(calls::numeric, 0))/1000,3),
   '<td align="right">'||round((max_time::numeric)/1000,3),
   '<td align="right">'||round(total_time),
 --  '<td align="right">'||round(blk_read_time+blk_write_time),
-  '<td align="right">'||rows,
+  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0))/1000,2),
+  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0))/1000,2),
   '<td align="right">'||round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2)  AS hit_percent
   FROM pg_stat_statements 
  WHERE pg_get_userbyid(userid) not in ('enterprisedb', 'efm')  -- Comment if needed
@@ -1302,62 +1395,8 @@ SELECT '<tr><td>'||replace(query,',',', '), ' <td>'||pg_get_userbyid(userid), '<
  ORDER BY (total_time::numeric/nullif(calls::numeric, 0)) DESC
  LIMIT 10;
 \endif
-select '</table><p>' as info;
-
-
-select '<P><table border="2">' as info;
-select '<tr><td><b>Database</b>',
- '<td><b>Calls</b>',
- '<td><b>DBcpu</b>',
- '<td><b>IOcpu</b>',
- '<td><b>Stmt/sec.</b>'
-as info;
-\if :var_version_13p
-\if :var_version_14p
-select '<tr><td>', datname,
-       '<td align="right">'||sum(calls),
-       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
-       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
-       '<td align="right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
-  from pg_stat_statements, pg_database, pg_stat_statements_info
- where pg_stat_statements.dbid=pg_database.oid
-   and pg_stat_statements.toplevel
- group by datname;
-select '<tr><td>TOTAL',
-       '<td align="right">'||sum(calls),
-       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
-       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu
-  from pg_stat_statements, pg_stat_statements_info where toplevel;
-\else
-select '<tr><td>', datname,
-       '<td align="right">'||sum(calls),
-       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
-       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
-  from pg_stat_statements, pg_database
- where pg_stat_statements.dbid=pg_database.oid
- group by datname;
-select '<tr><td>TOTAL',
-       '<td align="right">'||sum(calls),
-       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
-       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
-  from pg_stat_statements;
-\endif
-\else
-select '<tr><td>', datname,
-       '<td align="right">'||sum(calls),
-       '    <td>', round(sum( (total_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
-       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
-  from pg_stat_statements, pg_database
- where pg_stat_statements.dbid=pg_database.oid
- group by datname;
-
-select '<tr><td>TOTAL',
-       '<td align="right">'||sum(calls),
-       '    <td>',  round(sum( (total_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
-       '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
-  from pg_stat_statements;
-\endif
 select '</table><p><hr>' as info;
+
 
 select '<P><A NAME="tbl"></A><P>' as info;
 select '<P><table border="2"><tr><td colspan="4"><b>Table Statistics</b>' as info;
@@ -1417,26 +1456,28 @@ select '</table><p>' as info;
 
 select '<P><pre><b>Tables without Unique Indexes</b><br>' as info;
 select tab.table_schema ||'.'|| tab.table_name
-from information_schema.tables tab
-left join pg_indexes tco 
-          on tab.table_schema = tco.schemaname
-          and tab.table_name = tco.tablename 
-          and tco.indexdef like 'CREATE UNIQUE%'
-where tab.table_type = 'BASE TABLE'
-      and tab.table_schema not in ('pg_catalog', 'information_schema', 'sys')
-      and tco. indexname is null
-order by tab.table_schema, tab.table_name;
+  from information_schema.tables tab
+  left join pg_indexes tco 
+         on tab.table_schema = tco.schemaname
+         and tab.table_name = tco.tablename 
+         and tco.indexdef like 'CREATE UNIQUE%'
+ where tab.table_type = 'BASE TABLE'
+   and tab.table_schema not in ('pg_catalog', 'information_schema', 'sys')
+   and tco. indexname is null
+ order by tab.table_schema, tab.table_name
+ limit 1000;
 select '<br><br><b>Tables without Primary Key</b><br>' as info;
 select tab.table_schema ||'.'|| tab.table_name
-from information_schema.tables tab
-left join information_schema.table_constraints tco 
-          on tab.table_schema = tco.table_schema
-          and tab.table_name = tco.table_name 
-          and tco.constraint_type = 'PRIMARY KEY'
-where tab.table_type = 'BASE TABLE'
-      and tab.table_schema not in ('pg_catalog', 'information_schema', 'sys')
-      and tco.constraint_name is null
-order by tab.table_schema, tab.table_name;
+  from information_schema.tables tab
+  left join information_schema.table_constraints tco 
+         on tab.table_schema = tco.table_schema
+         and tab.table_name = tco.table_name 
+         and tco.constraint_type = 'PRIMARY KEY'
+ where tab.table_type = 'BASE TABLE'
+   and tab.table_schema not in ('pg_catalog', 'information_schema', 'sys')
+   and tco.constraint_name is null
+ order by tab.table_schema, tab.table_name
+ limit 1000;
 select '</pre><p><hr>' as info;
 
 select '<P><A NAME="idx"></A><P>' as info;
@@ -1494,7 +1535,7 @@ SELECT '<tr><td>'|| n.nspname ||'<td>'|| c1.relname ||'<td>'|| c2.relname
    AND i.indisvalid = false;
 select '</table><p>' as info;
 
-select '<P><table border="2"><tr><td><b>Missing indexes</b><td colspan="10">(using foreign constraints)' as info;
+select '<P><table border="2"><tr><td><b>Missing indexes</b><td colspan="10">(using foreign constraints, excluding small/unused tables)' as info;
 select '<tr><td><b>Schema</b><td><b>Relation</b>', '<td><b>Contraint</b><td><b>Issue</b>',
        '<td><b>Parent</b> <td><b>Columns</b>';
 select '<td><b>#Table Writes</b> <td><b>#Table Scan</b> <td><b>#Parent Scan</b>';
@@ -1611,9 +1652,10 @@ FROM fk_index_check
     JOIN parent_table_stats USING (fkoid)
     JOIN fk_table_stats USING (fkoid)
 WHERE table_size > 5*1024^2
-    AND ( writes > 1000
+  AND ( writes > 1000
         OR parent_writes > 1000
         OR parent_size > 10*1024^2 )
+  AND parent_size>8*1024
 ORDER BY table_scans DESC, table_size DESC, table_name, fk_name
  LIMIT 64;
 select '</table>' as info;
@@ -1654,7 +1696,8 @@ SELECT '<tr><td>',schemaname, '<td>',tablename,
   FROM pg_indexes
  WHERE schemaname not in ('pg_catalog', 'sys')
    AND tablename not like 'pgstatspack%'
- ORDER BY schemaname, tablename, indexname;  -- no more limits
+ ORDER BY schemaname, tablename, indexname
+ LIMIT 10000;
 select '</table><p></pre><hr>' as info;
 
 select '<!-- Report running: '|| now() || ' -->';
@@ -1762,28 +1805,6 @@ select '<tr><td>'||relname,
  limit 32;
 select '</table><p>' as info;
 
-select '<P><A NAME="toast"></A>'  as info;
-select '<P><table border="2"><tr><td><b>Largest TOASTs</b></td></tr>'
- as info;
-select '<tr><td><b>TOAST</b>',
- '<td><b>Owner</b>', '<td><b>Table</b>',
- '<td><b>Chunks</b>',
- '<td><b>Bytes</b>'
-as info;
-select '<tr><td>'||t.relname,
- '<td>'||rolname,  '<td>'||n.nspname||'.'||r.relname,
- '<td align=right>'||to_char(t.reltuples,'999G999G999G999G999G999G999'),
- '<td align=right>'||to_char(pg_relation_size(t.oid),'999G999G999G999G999G999G999')
-  from pg_class t, pg_roles, pg_catalog.pg_namespace n, pg_class r
- where t.relowner=pg_roles.oid
-   and n.oid=r.relnamespace
-   and r.reltoastrelid = t.oid
-   and t.relkind='t'
-   and t.reltuples>0
- order by pg_relation_size(t.oid) desc
- limit 10;
-select '</table><p>' as info;
-
 select '<P><A NAME="bigp"></A>'  as info;
 select '<P><table border="2"><tr><td><b>Biggest Partitioned Objects</b></td></tr>'
  as info;
@@ -1816,8 +1837,42 @@ SELECT '<tr><td>',parent ::REGCLASS AS table_name,
  HAVING max(level)>1
  ORDER BY sum(pg_total_relation_size(relid)) DESC
  LIMIT 10;
-select '</table><p><hr>' as info;
+select '</table><p>' as info;
 
+select '<P><A NAME="toast"></A>'  as info;
+select '<P><table border="2"><tr><td><b>Biggest TOASTs</b></td></tr>'
+ as info;
+select '<tr><td><b>TOAST</b>',
+ '<td><b>Owner</b>', '<td><b>Table</b>',
+ '<td><b>Chunks</b>',
+ '<td><b>Bytes</b>'
+as info;
+select '<tr><td>'||t.relname,
+ '<td>'||rolname,  '<td>'||n.nspname||'.'||r.relname,
+ '<td align=right>'||to_char(t.reltuples,'999G999G999G999G999G999G999'),
+ '<td align=right>'||to_char(pg_relation_size(t.oid),'999G999G999G999G999G999G999')
+  from pg_class t, pg_roles, pg_catalog.pg_namespace n, pg_class r
+ where t.relowner=pg_roles.oid
+   and n.oid=r.relnamespace
+   and r.reltoastrelid = t.oid
+   and t.relkind='t'
+   and t.reltuples>0
+ order by pg_relation_size(t.oid) desc
+ limit 10;
+select '</table><p>' as info;
+
+select '<P><A NAME="lo"></A>'  as info;
+select '<P><table border="2"><tr><td><b>Large Objects</b></td></tr>'
+ as info;
+select '<tr><td><b>Owner</b>',
+ '<td><b>Large Objects</b>',
+ '<td><b>Pages</b>',
+ '<td><b>Pages Largest</b>';
+select '<tr><td>',lomowner::regrole as owner, '<td align="right">',count(distinct loid) as large_obj, 
+       '<td align="right">',count(*) pages,  '<td align="right">',max(pageno)+1 pages_largest
+  from pg_largeobject l join pg_largeobject_metadata m on l.loid=m.oid
+ group by lomowner;
+select '</table><p><hr>' as info;
 
 select '<P><A NAME="psq"></A>'  as info;
 select '<P><table border="2"><tr><td><b>Procedural Languages</b></td></tr>'
@@ -1953,7 +2008,7 @@ select '<tr><td>',name,'<td>',replace(replace(setting,'<','&lt;'),'>','&gt;')
 select '</table><p>' as info;
 
 
-select '<P><table border="2"><tr><td><b>Master Statistics</b></td></tr>' ;
+select '<P><table border="2"><tr><td><b>Primary Server Statistics</b></td></tr>' ;
 select '<tr><td><b>Client</b>', '<td><b>State</b>', '<td><b>Sync</b>',
        '<td><b>Current Snapshot</b>', '<td><b>Sent loc.</b>',
        '<td><b>Write loc.</b>', '<td><b>Flush loc.</b>', '<td><b>Replay loc.</b>', '<td><b>Backend Start</b>';
@@ -1973,7 +2028,7 @@ select '<tr><td>',slot_name, '<td>', slot_type, '<td>', active,
 select '</table>' as info;
 
 
-select '<P><table border="2"><tr><td><b>Slave Statistics</b></td></tr>' ;
+select '<P><table border="2"><tr><td><b>Secondary Server Statistics</b></td></tr>' ;
 select '<tr><td><b>Last Replication</b>','<td><b>Replication Delay</b>','<td><b>Current Snapshot</b>',
        '<td><b>Receive loc.</b>','<td><b>Replay loc.</b>';
 select '<tr><td>', now() - pg_last_xact_replay_timestamp(),
@@ -2154,7 +2209,7 @@ select '</table><p><hr>' as info;
 select '<P><A NAME="pghba"></A>'  as info;
 select '<P><table border="2"><tr><td><b>HBA file</b></td></tr>';
 select '<tr><td><p><pre>' as info;
-select pg_read_file('pg_hba.conf',1,10240);
+select pg_read_file('pg_hba.conf',0,10240);
 select '</pre></table><p>' as info;
 -- SELECT * from pg_catalog.pg_read_file('pg_hba.conf');
 -- WITH f(name) AS (VALUES('pg_hba.conf'))
@@ -2163,7 +2218,14 @@ select '</pre></table><p>' as info;
 select '<P><A NAME="pgautoconf"></A>'  as info;
 select '<P><table border="2"><tr><td><b>Autoconf file</b></td></tr>';
 select '<tr><td><p><pre>' as info;
-select pg_read_file('postgresql.auto.conf',1,10240);
+\pset tuples_only
+\a
+select 'postgresql.conf' as file, * from pg_stat_file('postgresql.conf')
+ union all
+select 'postgresql.auto.conf' as file, * from pg_stat_file('postgresql.auto.conf');
+\pset tuples_only
+\a
+select pg_read_file('postgresql.auto.conf',0,10240);
 select '</pre></table><p><hr>' as info;
 
 
@@ -2175,7 +2237,7 @@ select '<tr><td><p><xmp>' as info;
 select count(*) as LOG_files, pg_size_pretty(sum(size)) as LOG_total_size
   from pg_ls_logdir();
 select * from pg_ls_logdir() order by modification desc limit 20;
-select pg_read_file(setting||'/'||dr.name, greatest(-16384, dr.size * -1), 16384) as Log_messages
+select pg_read_file(setting||'/'||dr.name, greatest(-32768, dr.size * -1), 32768) as Log_messages
   from pg_ls_logdir() dr, pg_settings st
  where st.name ='log_directory'
  order by modification desc limit 1;
@@ -2199,6 +2261,28 @@ union all
 \a
 select '</pre></table><p><hr>' as info;
 
+select '<P><A NAME="fdw"></A>'  as info;
+select '<P><table border="2"><tr><td><b>Foreign Data Wrappers</b></td></tr>';
+select '<tr><td><p><pre>' as info;
+\pset tuples_only
+\a
+
+SELECT w.oid, w.fdwname, a.rolname as owner, ph.proname as handler, pv.proname as validator, fdwacl, fdwoptions
+  from pg_foreign_data_wrapper w, pg_authid a, pg_proc ph,  pg_proc pv
+ where w.fdwowner = a.oid
+   and w.fdwhandler = ph.oid
+   and w.fdwvalidator = pv.oid;
+SELECT c.relname as foreign_table, fs.srvname, fs.srvtype, fs.srvversion, ft.ftoptions
+  FROM pg_foreign_table ft, pg_class c, pg_foreign_server fs
+ WHERE ft.ftrelid = c.oid
+   AND ft.ftserver = fs.oid;
+SELECT *  from pg_foreign_server;
+SELECT *  from pg_user_mapping;
+
+\pset tuples_only
+\a
+select '</pre></table><p><hr>' as info;
+
 select '<!-- Report running: '|| now() || ' -->';
 
 /* Extensions, fork, cloud information dynamic statistics */
@@ -2214,9 +2298,11 @@ SELECT
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='sslinfo' and installed_version is not null) as sslinfo,
     EXISTS (SELECT 1 FROM pg_stat_ssl WHERE ssl limit 1) as ssl_active,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pgaudit' and installed_version is not null) as pgaudit,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='postgres_fdw' and installed_version is not null) as postgres_fdw,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pgrowlocks' and installed_version is not null) as pgrowlocks,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='postgis' and installed_version is not null) as postgis,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='vector' and installed_version is not null) as pgvector,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='amcheck' and installed_version is not null) as amcheck,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pgml' and installed_version is not null) as pgml,
     EXISTS (SELECT 1 FROM pg_settings WHERE name='max_prepared_transactions' and setting::int > 0 ) as xa_active,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='anon' and installed_version is not null) as anon,
@@ -2266,6 +2352,20 @@ SELECT pg_size_pretty(count(*) * 8192) as minimal_cache_size_est
 select '</pre></table><p><hr>' as info;
 \endif
 
+\if :opt_postgres_fdw
+select '<P><A NAME="postgres_fdw"></A>'  as info;
+select '<P><table border="2"><tr><td><b>Postgres FDW</b></td></tr>';
+select '<tr><td><p><pre>' as info;
+\pset tuples_only
+\a
+
+SELECT * FROM postgres_fdw_get_connections() ORDER BY 1;
+
+\pset tuples_only
+\a
+select '</pre></table><p><hr>' as info;
+\endif
+
 
 \if :opt_pgstattuple
 select '<P><A NAME="pgstattuple"></A>'  as info;
@@ -2275,7 +2375,7 @@ select '<tr><td><p><pre>' as info;
 \a
 
 \if 0
-select n.nspname, relname Relation, relpages, (pgstattuple_approx(pg_class.oid::regclass)).*
+select n.nspname as schema, relname as table, relpages, (pgstattuple_approx(pg_class.oid::regclass)).*
   from pg_class, pg_roles, pg_catalog.pg_namespace n
  where relowner=pg_roles.oid
    and n.oid=pg_class.relnamespace
@@ -2283,21 +2383,21 @@ select n.nspname, relname Relation, relpages, (pgstattuple_approx(pg_class.oid::
  order by relpages desc
  limit 20;
 
-select n.nspname, relname Relation, relpages, (pgstatindex(pg_class.oid::regclass)).*
+select n.nspname as schema, relname as index, relpages, (pgstatindex(pg_class.oid::regclass)).*
   from pg_class, pg_roles, pg_catalog.pg_namespace n
  where relowner=pg_roles.oid
    and n.oid=pg_class.relnamespace
    and relkind = 'i'
  order by relpages desc
- limit 20;
+ limit 10;
 
-select n.nspname, relname Relation, relpages, (pgstattuple(pg_class.oid::regclass)).*
+select n.nspname as schema, relname as table, relpages, (pgstattuple(pg_class.oid::regclass)).*
   from pg_class, pg_roles, pg_catalog.pg_namespace n
  where relowner=pg_roles.oid
    and n.oid=pg_class.relnamespace
    and relkind = 'r'
  order by relpages desc
- limit 20;
+ limit 10;
 \endif
 
 \pset tuples_only
@@ -2432,7 +2532,7 @@ select '<P><table border="2"><tr><td><b>Additional PG12+ Statistics</b></td></tr
 select '<tr><td><pre>' as info;
 \pset tuples_only
 \a
-SELECT *
+SELECT name as temporary_filename, size, modification
   FROM pg_ls_tmpdir()
  ORDER BY modification DESC;
 
@@ -2583,6 +2683,20 @@ select '</table>';
 \a
 select '</pre></table><p>' as info;
 \endif
+
+
+\if :var_version_18p
+select '<P><A NAME="18_stats"></A>'  as info;
+select '<P><table border="2"><tr><td><b>Additional PG18+ Statistics</b></td></tr>';
+select '<tr><td><pre>' as info;
+\pset tuples_only
+\a
+select 'April the 1st is too early!';
+\pset tuples_only
+\a
+select '</pre></table><p>' as info;
+\endif
+
 
 select '<hr>';
 
@@ -2756,6 +2870,35 @@ select '</pre></table><p>' as info;
 \endif
 
 
+\if :opt_amcheck
+select '<P><A NAME="anon"></A>'  as info;
+select '<P><table border="2"><tr><td><b>amcheck</b> (customize if needed)</td></tr>';
+select '<tr><td><p><pre>' as info;
+\pset tuples_only
+\a
+SELECT bt_index_check(index => c.oid, heapallindexed => i.indisunique),
+       n.nspname, c.relname, c.relpages
+  FROM pg_index i
+  JOIN pg_opclass op ON i.indclass[0] = op.oid
+  JOIN pg_am am ON op.opcmethod = am.oid
+  JOIN pg_class c ON i.indexrelid = c.oid
+  JOIN pg_namespace n ON c.relnamespace = n.oid
+ WHERE am.amname = 'btree'
+   AND c.relpersistence != 't'
+   AND c.relkind = 'i'
+   AND i.indisready
+   AND i.indisvalid
+   AND n.nspname = 'pg_catalog'
+   AND c.relname not in('')
+ORDER BY c.relpages DESC LIMIT 10;
+\pset tuples_only
+\a
+select '</pre></table><p>' as info;
+\endif
+
+
+select '<A NAME="fork"></A>';
+
 \if :opt_edb
 select '<P><A NAME="EDB"></A>'  as info;
 select '<P><table border="2"><tr><td><b>Additional EnterpriseDB Advanced Server Statistics </b></td></tr>';
@@ -2900,7 +3043,17 @@ select *
   from google_db_advisor_workload_report;
 
 \if :opt_alloy_col
+SELECT *
+  FROM g_columnar_schedules;
+SELECT database_name, schema_name, relation_name, column_name
+  FROM g_columnar_recommended_columns;
+
 SELECT google_columnar_engine_memory_available();
+SELECT memory_name, pg_size_pretty(memory_total) as memory_total,
+        pg_size_pretty(memory_available) as memory_available,
+        memory_available_percentage
+  FROM g_columnar_memory_usage;
+SELECT * FROM google_columnar_engine_recommend(mode => 'RECOMMEND_SIZE');
 
 SELECT database_name, schema_name, relation_name, status, size, pg_size_pretty(size) as size_hr,
        invalid_block_count, total_block_count
@@ -2910,12 +3063,12 @@ SELECT database_name, schema_name, relation_name, column_name, size_in_bytes, la
   FROM g_columnar_columns;
 
 SELECT *
-FROM pg_stat_statements(TRUE) AS pg_stats
-     FULL JOIN g_columnar_stat_statements AS g_stats
-     ON pg_stats.userid = g_stats.user_id AND
-        pg_stats.dbid = g_stats.db_id AND
-        pg_stats.queryid = g_stats.query_id
-WHERE columnar_unit_read > 0;
+  FROM pg_stat_statements(TRUE) AS pg_stats
+  FULL JOIN g_columnar_stat_statements AS g_stats
+       ON pg_stats.userid = g_stats.user_id AND
+          pg_stats.dbid = g_stats.db_id AND
+          pg_stats.queryid = g_stats.query_id
+ WHERE columnar_unit_read > 0;
 \endif
 \endif
 
@@ -2942,7 +3095,7 @@ select '<P>Statistics generated on: '|| current_date || ' ' ||localtime as info;
 select '<br>More info on' as info;
 select '<A HREF="http://meoshome.it.eu.org#post">this site</A>' as info;
 
-select '<br> Copyright: 2024 meob - License: GNU General Public License v3.0' as info;
+select '<br> Copyright: 2025 meob - License: GNU General Public License v3.0' as info;
 select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' as info;
 \pset tuples_only
 \a

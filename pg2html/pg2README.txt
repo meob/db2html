@@ -14,7 +14,7 @@ Multiple reports can be archived with
 
 
 License:
-Copyright 2006-2024 mail@meo.bogliolo.name 
+Copyright 2006-2025 mail@meo.bogliolo.name 
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
