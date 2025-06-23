@@ -36,22 +36,26 @@ select '<li><b><A HREF="#custC">Custom</a></b>:' from dual;
 select '</ul><a href="#top">Top</a>' from dual;
 select '<hr>' Title from dual;
 
-@custom_10g
-@custom_11g
-@custom_12c
+REM @custom_10g
+REM @custom_11g
+REM @custom_12c
 REM @custom_18c
+@custom_pre19
 @custom_19c
-@custom_23c
+REM @custom_23c
 @custom_asm
 @custom_rac
 
 @custom_dg
+REM @custom_spatial
 REM @custom_adg
 REM @custom_exadata
+REM @custom_cellperf
 @custom_advice
 REM @custom_opt
 REM @custom_audit
 REM @custom_mem
+REM @custom_statspack
 @custom_omf
 @custom_sysaux
 REM @custom_ebs
@@ -76,7 +80,7 @@ REM @custom_mixen_dd
 
 REM Diagnostic Pack Option License required for running the following scripts
 REM @custom_awr
-REM @custom_10g_diag
+REM @custom_diag
 REM @custom_hist_io
 
 REM Tuning Pack Option License required for running the following script
