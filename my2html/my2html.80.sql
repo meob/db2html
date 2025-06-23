@@ -53,12 +53,9 @@ select '</ul></table><p><hr>' ;
  
 select '<P>Statistics generated on: ', now();
 select ' by: ', user(), 'as: ',current_user();
- 
-select 'using: <I><b>my2html.80.sh</b> v.1.0.23c';
-select '<br>Software by ';
-select '<A HREF="http://meoshome.it.eu.org/#dwn">Meo</A></I><p><HR>';
+select 'using: <I><b>my2html.80.sh</b> v.1.0.23d';
 
-select '<P><A NAME="status"></A>';
+select '<HR><P><A NAME="status"></A>';
 select '<P><table border="2"><tr><td><b>Summary</b></td></tr>';
 select '<tr><td><b>Item</b>', '<td><b>Value</b>';
 
@@ -135,18 +132,19 @@ select '<tr><td><b>Version</b>',
  '<td><b> Last update (N or N-1)</b>',
  '<td><b> Notes</b>';
 select '<tr><td>', version();
-select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0', '11.3','11.2','11.1','11.0',
-       '10.11','10.10','10.6','10.5','10.4'), 'YES', 'NO') ; -- supported version BOTH MySQL MariaDB
+select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0'), 'YES', 'NO') ;
 
-select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0', '10.11','10.6'), 'YES', 'NO') ; -- last2 LTS releases
+select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0'), 'YES', 'NO') ; -- last2 LTS releases
 
 select ' <td>', if(SUBSTRING_INDEX(version(),'-',1)
     in ('8.4.2','8.0.39','5.7.44', 
         '8.4.3','8.0.40','5.7.44'), 'YES', 'NO') ; -- last2 MySQL updates
 
-select '<td>Latest Releases: <b>8.4.3</b>, <b>8.0.40</b>; 9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
-select ' <br>Latest Releases (MariaDB): <b>11.4.2</b>, 11.3.2, 11.2.4, 11.1.5, 11.0.6, <b>10.11.8</b>, 10.10.7, <b>10.6.18</b>, 10.5.25, 10.4.34;';
+select '<td>Latest Releases: 9.3.0, <b>8.4.5</b>, <b>8.0.42</b>; 9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
+select ' <br>Latest Releases (MariaDB): 11.7.2, 11.6.2, 11.5.2, <b>11.4.5</b>, 11.3.2, 11.2.6, ';
+select '     11.1.6, 11.0.6, <b>10.11.11</b>, 10.10.7, <b>10.6.21</b>, 10.5.28, 10.4.34;';
 select '     10.9.8, 10.8.8, 10.7.8, 10.3.39, 10.2.44, 10.1.48, 10.0.38, 5.5.68';
+select ' <br>Latest Releases (Aurora): 3.08.1-8.0.39, <b>3.05.2-8.0.32</b> (def.), 2.12.4-5.7.44, 1.23.4-5.6 ';
 select '</table><p><hr>' ;
 
  
@@ -384,7 +382,7 @@ select '</table><p>' ;
 select '<P><a id="usr_sec"></a><a name="role"></a>';
 select '<P><table border="2"><tr><td><b>Roles</b></td></tr>' ;
 select '<tr><td><b>Role Name</b><td><b>Active</b>' ;
-SELECT DISTINCT '<tr><td>, User, '<td>', if(from_user is NULL, 0, 1) 
+SELECT DISTINCT '<tr><td>', User, '<td>', if(from_user is NULL, 0, 1) 
   FROM mysql.user LEFT JOIN mysql.role_edges ON from_user=user 
  WHERE account_locked='Y'
    AND password_expired='Y'
@@ -1395,7 +1393,7 @@ select '</table><p><hr>' ;
 
 select '<hr><P>Statistics generated on: ', now();
 select '<br>More info on';
-select '<A HREF="http://meoshome.it.eu.org#my">this site</A>' as info;
-
-select '<br> Copyright: 2024 meob - License: GNU General Public License v3.0' as info;
-select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' as info;
+select '<A HREF="https://www.meo.bogliolo.name/#my">this site</A>' as info;
+select '<br> Copyright: 2025 meob - License: GNU General Public License v3.0' as info;
+select '<br> Sources: https://github.com/meob/db2html/ <p>' as info;
+select '</body></html>' as info;

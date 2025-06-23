@@ -1,6 +1,6 @@
 -- Program:	 ProxySQL2html.sql
 --		 ProxySQL SQL report in HTML
--- Version:      1.0.3: latest releases (2023-08-01)
+-- Version:      1.0.4: latest releases (2025-04-01)
 -- Author:       Bartolomeo Bogliolo mail@meo.bogliolo.name
 -- Date:         2018-02-14
 -- License:      GPL
@@ -30,7 +30,7 @@ select '<P>Statistics generated at: ', current_timestamp;
 select ' by: ';
 select user();
  
-select 'using: <I><b>proxysql2html.sql</b> v.1.0.3a';
+select 'using: <I><b>proxysql2html.sql</b> v.1.0.4';
 select '<br>Software by ';
 select '<A HREF="https://meoshome.it.eu.org/#dwn">Meo</A></I><p><HR>';
 
@@ -262,13 +262,22 @@ select '</table><p><br>' ;
 
 select '<P><table border="2"><tr><td><b>Configured Rules </b></td></tr>';
 select '<tr><td><b> Rule </b>', '<td><b>Active</b>', '<td><b>User</b>',
-       '<td><b>Schema</b>', '<td><b>Digest</b>', '<td><b>TTL</b>', '<td><b>Apply</b>';
+       '<td><b>Schema</b>', '<td><b>Digest</b>', '<td><b>TTL</b>', '<td><b>Apply</b>',
+       '<td><b>Destination HG</b>', '<td><b>Match Digest</b>';
 SELECT '<tr><td>',rule_id, '<td>',active, '<td>',username,
-       '<td>',schemaname, '<td>',digest, '<td>',cache_ttl, '<td>',apply
+       '<td>',schemaname, '<td>',digest, '<td>',cache_ttl, '<td>',apply,
+       '<td>',destination_hostgroup, '<td>',match_digest
   FROM main.mysql_query_rules
  ORDER BY rule_id;
-select '</table><p><hr>' ;
+select '</table><p>' ;
 
+select '<P><table border="2"><tr><td><b>Used Rules </b></td></tr>';
+select '<tr><td><b> Rule </b>', '<td><b>Hits</b>';
+SELECT '<tr><td>',rule_id, '<td>',hits
+  FROM stats_mysql_query_rules
+ WHERE hits>0
+ ORDER BY rule_id;
+select '</table><p><hr>' ;
 
 select '<P><A NAME="stats"></A>';
 select '<P><table border="2"><tr><td><b>ProxySQL Statistics</b></td></tr>';
@@ -338,13 +347,31 @@ select '<tr><td>',Command, '<td align="right">',total_cnt, '<td align="right">',
  order by Total_cnt desc limit 30; 
 select '</table><p>';
 
-select '<P><table border="2"><tr><td><b>Query Statistics</b></td></tr>';
-select '<tr><td><b>Hostgroup</b>', '<td><b>Schema</b>', '<td><b>Count</b>',
+select '<P><table border="2"><tr><td colspan="4"><b>Query Statistics</b> (Heaviest)</td></tr>';
+select '<tr><td><b>Hostgroup</b>', '<td><b>Schema</b>', '<td><b>Count</b>', '<td><b>Total Time</b>',
        '<td><b>Min Time</b>', '<td><b>Max Time</b>','<td><b>Digest</b>','<td><b>Query</b>';
-select '<tr><td>',hostgroup, '<td>',schemaname, '<td align="right">',count_star, '<td align="right">',(min_time/1000000),
-       '<td align="right">',(max_time/1000000), '<td>',digest, '<td>',substr(digest_text, 1,512)
+select '<tr><td>',hostgroup, '<td>',schemaname, '<td align="right">',count_star, '<td align="right">',(sum_time/1000000),
+       '<td align="right">', (min_time/1000000), '<td align="right">',(max_time/1000000), '<td>',digest, '<td>',substr(replace(replace(digest_text,'<','&lt;'),'>','&gt;'), 1,512)
   from stats.stats_mysql_query_digest
- order by count_star desc limit 30;
+ order by sum_time desc limit 30;
+select '</table><p>' ;
+
+select '<P><table border="2"><tr><td colspan="4"><b>Query Statistics</b> (Most EXECed)</td></tr>';
+select '<tr><td><b>Hostgroup</b>', '<td><b>Schema</b>', '<td><b>Count</b>', '<td><b>Total Time</b>',
+       '<td><b>Min Time</b>', '<td><b>Max Time</b>','<td><b>Digest</b>','<td><b>Query</b>';
+select '<tr><td>',hostgroup, '<td>',schemaname, '<td align="right">',count_star, '<td align="right">',(sum_time/1000000),
+       '<td align="right">', (min_time/1000000), '<td align="right">',(max_time/1000000), '<td>',digest, '<td>',substr(replace(replace(digest_text,'<','&lt;'),'>','&gt;'), 1,512)
+  from stats.stats_mysql_query_digest
+ order by count_star desc limit 10;
+select '</table><p>' ;
+
+select '<P><table border="2"><tr><td colspan="4"><b>Query Statistics</b> (Slowest)</td></tr>';
+select '<tr><td><b>Hostgroup</b>', '<td><b>Schema</b>', '<td><b>Count</b>', '<td><b>Total Time</b>',
+       '<td><b>Min Time</b>', '<td><b>Max Time</b>','<td><b>Digest</b>','<td><b>Query</b>';
+select '<tr><td>',hostgroup, '<td>',schemaname, '<td align="right">',count_star, '<td align="right">',(sum_time/1000000),
+       '<td align="right">', (min_time/1000000), '<td align="right">',(max_time/1000000), '<td>',digest, '<td>',substr(replace(replace(digest_text,'<','&lt;'),'>','&gt;'), 1,512)
+  from stats.stats_mysql_query_digest
+ order by max_time desc limit 10;
 select '</table><p><hr>' ;
 
 select '<P><A NAME="det"></A>';
@@ -392,6 +419,19 @@ select '<tr><td>',hostname, '<td>',port, '<td>',from_unixtime(time_start_us/1000
  limit 10; 
 select '</table><p>' ;
 
+select '<P><table border="2"><tr><td><b>Galera Cluster LOG</b></td></tr>';
+select '<tr><td><b>Host</b>', '<td><b>Port</b>', '<td><b>Time</b>', '<td><b>Success Time</b>',
+       '<td><b>Primary</b>', '<td><b>Read Only</b>',
+       '<td><b>Recv Queue</b>', '<td><b>State</b>', '<td><b>Desync</b>', '<td><b>Reject Queries</b>',
+       '<td><b>SST Donor Rejects</b>', '<td><b>PXC Maint Mode</b>', '<td><b>Error</b>';
+select '<tr><td>',hostname, '<td>',port, '<td>',from_unixtime(time_start_us), '<td>',from_unixtime(success_time_us),
+       '<td>',primary_partition, '<td>',read_only,
+       '<td>',wsrep_local_recv_queue, '<td>',wsrep_local_state, '<td>',wsrep_desync, '<td>',wsrep_reject_queries,
+       '<td>',wsrep_sst_donor_rejects_queries, '<td>',pxc_maint_mode, '<td>',error
+  from mysql_server_galera_log
+order by time_start_us desc limit 30;
+select '</table><p>' ;
+
 select '<P><table border="2"><tr><td><b>Client Host Cache</b></td></tr>';
 select '<tr><td><b>Client</b>', '<td><b>#Errors</b>', '<td><b>Time</b>';
 select '<tr><td>', client_address, '<td>', error_count, '<td>',from_unixtime(last_updated/1000000)
@@ -420,11 +460,20 @@ select '<tr><td>', variable_name, '<td>', replace(variable_value,',',', ')
  order by variable_name;
 select '</table><p><hr>' ;
 
+select '<P><A NAME="ver"></A>';
+select '<P><table border="2"><tr><td><b>Version check</b></td></tr>' ;
+select '<tr><td><b>Version</b>', '<td><b> Notes</b>';
+select '<tr><td>', variable_value
+  from main.global_variables
+ where variable_name='admin-version';
+select '<td>Latest Releases: 3.0.1, 2.7.3, 2.6.6; 2.5.5, 2.4.8, 2.3.2, 2.2.2, 2.1.1, 2.0.18; 1.4.16'; 
+select '</table><p><hr>' ;
+
 
 select '<hr><p>Statistics generated at: ', current_timestamp;
 select '<p>For more info on ProxySQL2html contact' ;
-select '<A HREF="mailto:mail@meo.bogliolo.name">Meo Bogliolo</A>.<p></body></html>' ;
-
+select '<A HREF="mailto:mail@meo.bogliolo.name">Meo Bogliolo</A>.<p>' ;
+select '</body></html>' ;
 
 -- select * from monitor.mysql_server_replication_lag_log;
 -- select * from monitor.mysql_server_read_only_log;
@@ -441,5 +490,5 @@ select '<A HREF="mailto:mail@meo.bogliolo.name">Meo Bogliolo</A>.<p></body></htm
 --  from mysql_server_galera_log
 -- order by time_start_us desc limit 30;
 
--- select * from stats_mysql_query_rules;
+-- select rule_id, hits from stats_mysql_query_rules;
 -- select * from stats_proxysql_servers_metrics;
