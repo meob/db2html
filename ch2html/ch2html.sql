@@ -19,7 +19,7 @@
 --          1.0.9 Users and grants, detached parts, errors, latest versions update (a) latest versions update (b) minor updates
 --          1.0.10 Latest versions update (2023-08-15)
 --          1.0.11 Latest versions update (2024-02-14). (a) metric_log and asynchronous_metric_log statistics
---          1.0.12 Latest versions update (2024-08-15). (a) version update
+--          1.0.12 Latest versions update (2024-08-15). (a) version update (b) version update, formatting
 --
 -- Usage: clickhouse-client -mn --ignore-error < ch2html.sql > `hostname`.8123.htm
 
@@ -60,11 +60,9 @@ select '<li><A HREF="#os">Operating System info</A></li>' ;
 select '</ul></table><p><hr>' ;
  
 select '<P>Statistics generated on: ', now();
-select 'using: <I><b>ch2html.sh</b> v.1.0.12a';
-select '<br>Software by ';
-select '<A HREF="http://meoshome.it.eu.org/">Meo</A></I><p><hr>';
+select 'using: <I><b>ch2html.sh</b> v.1.0.12b';
 
-select '<P><A NAME="status"></A>';
+select '<hr><P><A NAME="status"></A>';
 select '<P><table border="2"><tr><td><b>Summary</b></td></tr>';
 select '<tr><td><b>Item</b>', '<td><b>Value</b>';
 select '<tr><td>Version :', '<td>', version();
@@ -116,13 +114,13 @@ select '<tr><td><b>Version</b>',
  '<td><b> Recent releases </b>',
  '<td><b> Notes</b>';
 select '<tr><td>', version();
-select '<td>', if(value>=23000000,'Yes','No')
+select '<td>', if(value>=25000000,'Yes','No')
   from system.metrics
  where metric='VersionInteger';
-select '<td>', if(value>=22000000,'Yes','No')
+select '<td>', if(value>=24000000,'Yes','No')
   from system.metrics
  where metric='VersionInteger';
-select '<td>Latest Releases: 24.9.2.42, 24.8.5.115-lts, 24.3.12.75-lts, 23.8.16.40−lts, 23.3.22.3−lts; 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
+select '<td>Latest Releases: 25.4.1.2934, 25.3.3.42-lts, 24.8.14.39-lts, 24.3.18.7-lts; 23.8.16.40−lts, 23.3.22.3−lts, 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
 select '</table><p>' ;
 
 select '<P><A NAME="obj"></A>' ;
@@ -845,7 +843,7 @@ select '<tr><td><b>Database</b>',
  '<td><b>Ass.</b>',
  '<td><b>Used</b>',
  '<td><b>Last Exc. time</b>';
-SELECT '<tr><td>',database, '<td>',table, '<td>',assignments.topic,
+SELECT '<tr><td>',database, '<td>',table, '<td>',replace(assignments.topic, ',', ', '),
        '<td align=right>',num_commits, '<td align=right>',num_messages_read,
        '<td>',last_commit_time, '<td>',last_poll_time, 
        '<td>', if(consumer_id='', 0,1), '<td>',is_currently_used, 
