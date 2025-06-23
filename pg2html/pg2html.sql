@@ -1,8 +1,8 @@
 -- Program: pg2html.sql
--- Info:    PostgreSQL report in HTML
+-- Info:    PostgreSQL psql report in HTML
 --          Works with PostgreSQL 10 or sup. (tested and updated up to 17.x)
 -- Date:    2008-08-15
--- Version: 1.0.30 on 2025-02-14
+-- Version: 1.0.30b on 2025-05-08
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -44,7 +44,8 @@
 --                 (p) autoconf file (q) version update
 --          1.0.28 pgvector, ... (a) minor changes, waitstart (b) unidexed tables, minor changes (c) Cloud SQL and AlloyDB (d) FDW
 --          1.0.29 Latest versions update, minor changes. (a) Latest versions update (b) amcheck, bug fixing (c) PG18 stub
---          1.0.30 Latest versions update, pg_largeobject.
+--          1.0.30 Latest versions update, pg_largeobject, table storage parameters. (a) Latest versions update
+--                 (b) Reduntant indexes
 
 \pset tuples_only
 \pset fieldsep ' '
@@ -87,7 +88,7 @@ select '</ul></table><p><hr>' as info;
 select '<P>Report generated on: '|| now();
 select 'on database: <b>'||current_database()||'</b>' as info;
 select 'by user: '||user as info;
-select 'using: <I><b>pg2html.sql</b> v.1.0.30' as info;
+select 'using: <I><b>pg2html.sql</b> v.1.0.30b' as info;
  
 select '<hr><P><A NAME="status"></A>' as info;
 select '<P><table border="2"><tr><td><b>Summary</b></td></tr>' as info;
@@ -204,13 +205,13 @@ SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num')
   ELSE 'NO' END; -- last2 release
 SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
   in (90624,100023, 110022,110021,110020,120021,
-  130019,130018,130020,
-  140016,140015,140017,
-  150011,150010,150012,
-  160007,160006,160008,
-  170003,170003,170004) THEN 'YES'
+  130021,130018,130020,
+  140018,140015,140017,
+  150013,150010,150012,
+  160009,160006,160008,
+  170005,170003,170004) THEN 'YES'
   ELSE 'NO' END; -- last2 update
-select '<td>Latest Releases: 17.3, 16.7, 15.11, 14.16, 13.19';
+select '<td>Latest Releases: 17.5, 16.9, 15.13, 14.18, 13.21';
 select '    <br>Latest Unsupported: 12.21, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
 select '    8.4.21, 8.3.23, 8.2.23, 8.1.23, 8.0.26; 7.4.30, 6.5.3';
 select '</table><p><hr>';
@@ -710,9 +711,9 @@ SELECT '<tr><td>'||datname||'<td align="right">', age(datfrozenxid), '<td align=
 select '</table><p>' as info;
 
 select '<P><table border="2"><tr><td><b>Relations too aged</b></td></tr>' as info;
-select '<tr><td><b>Schema</b>', '<td><b>Relation</b>',
+select '<tr><td><b>Table</b>',
  '<td><b>XID age</b>',  '<td><b>Overdue</b>',  '<td><b>HR Size</b>', '<td><b>HR Total Size</b>', '<td><b>% Wraparound</b>';
-SELECT '<tr><td>'|| nspname ||'<td>'|| relname ||'<td align="right">', age(relfrozenxid),
+SELECT '<tr><td>'|| nspname ||'.'|| relname ||'<td align="right">', age(relfrozenxid),
        '<td align="right">', age(relfrozenxid) - current_setting('vacuum_freeze_table_age')::integer,
        '<td align="right">', pg_size_pretty(pg_relation_size(pg_class.oid)),
        '<td align="right">', pg_size_pretty(pg_total_relation_size(pg_class.oid)),
@@ -724,9 +725,9 @@ SELECT '<tr><td>'|| nspname ||'<td>'|| relname ||'<td align="right">', age(relfr
  ORDER by 2 DESC;
 
 select '<tr><td><b>Most aged</b></td></tr>' as info;
-select '<tr><td><b>Schema</b>', '<td><b>Relation</b>',
+select '<tr><td><b>Table</b>',
  '<td><b>XID age</b>',  '<td><b>Overdue</b>',  '<td><b>HR Size</b>', '<td><b>HR Total Size</b>', '<td><b>% Wraparound</b>';
-SELECT '<tr><td>'|| nspname ||'<td>'|| relname ||'<td align="right">', age(relfrozenxid),
+SELECT '<tr><td>'|| nspname ||'.'|| relname ||'<td align="right">', age(relfrozenxid),
        '<td align="right">', age(relfrozenxid) - current_setting('vacuum_freeze_table_age')::integer,
        '<td align="right">', pg_size_pretty(pg_relation_size(pg_class.oid)),
        '<td align="right">', pg_size_pretty(pg_total_relation_size(pg_class.oid)),
@@ -892,13 +893,13 @@ select '<td valign="top"><table border="2"><tr><td><b>Per-APP Sessions</b> (Firs
  as info;
 select '<tr><td><b>APP</b>', '<td><b>Database</b>',
        '<td><b>Count</b>', '<td><b>Active</b>', '<td><b>Idle TX</b>';
-select '<tr><td>', application_name,
+select '<tr><td>', replace(replace(application_name,'<','&lt;'), '>','&gt;') appl,
        '<td>',datname,
  	'<td>', count(*),
  	'<td>', sum(case when state='active' then 1 else 0 end),
  	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity
- group by application_name, datname
+ group by replace(replace(application_name,'<','&lt;'), '>','&gt;'), datname
  order by 6 desc, 2
  limit 20;
 select 	'<tr><td>TOTAL (', count(distinct application_name),
@@ -940,12 +941,41 @@ select 	'<tr><td>',pid,
                when state is null then 4
                else 2
            end, query_start;
+\if :var_version_14p
+select '</table><p>' as info;
+select '<P><table border="2"><tr><td colspan="7"><b>Active Sessions details</b> (now: ', now(),')'
+ as info;
+select '<tr><td><b>Pid</b>',
+ '<td><b>Database</b>',
+ '<td><b>User</b>',
+ '<td><b>Query start</b>',
+ '<td><b>State</b>',
+ '<td><b>Wait Event</b>',
+ '<td><b>Wait Type</b>',
+ '<td><b>Backend</b>',
+ '<td><b>query_id</b>',
+ '<td><b>Query</b>' ;
+select 	'<tr><td>',pid,
+ 	'<td>',datname,
+ 	'<td>',usename,
+ 	'<td>',query_start,
+ 	'<td>',state,
+ 	'<td>',wait_event,
+ 	'<td>',wait_event_type,
+ 	'<td>',backend_type,
+ 	'<td>',query_id,
+ 	'<td>',substring(query, 1,60) as query
+  from pg_stat_activity
+ where pid<>pg_backend_pid()
+   and state='active'
+   and backend_type<>'walsender'
+ order by query_start;
+\endif
 select '</table><p><hr>' as info;
 
 select '<A NAME="lockd"></A>'  as info;
 select '<A NAME="wlock"></A>'  as info;
-select '<P><table border="2"><tr><td><b>Waiting Locks</b></td></tr>'
- as info;
+select '<P><table border="2"><tr><td colspan="7"><b>Waiting Locks</b>  (now: ', now(), ')';
 select '<tr><td><b>Pid</b>',
  '<td><b>Type</b>',
  '<td><b>Database</b>',
@@ -984,8 +1014,7 @@ select '<tr><td>',pid,
 select '</table><p>' as info;
 
 select '<P><A NAME="block"></A>'  as info;
-select '<P><table border="2"><tr><td><b>Blocking Locks</b></td></tr>'
- as info;
+select '<P><table border="2"><tr><td><b>Blocking Locks</b></td></tr>';
 select '<tr><td><b>Blocked Pid</b>',
  '<td><b>Blocked User</b>',
  '<td><b>Blocking Pid</b>',
@@ -1013,8 +1042,37 @@ SELECT '<tr><td>',blocked_locks.pid AS blocked_pid,
         AND blocking_locks.objsubid IS NOT DISTINCT FROM blocked_locks.objsubid
         AND blocking_locks.pid != blocked_locks.pid
        JOIN pg_catalog.pg_stat_activity blocking_activity ON blocking_activity.pid = blocking_locks.pid
- WHERE NOT blocked_locks.GRANTED;
+ WHERE NOT blocked_locks.GRANTED
+ ORDER BY blocked_locks.pid, blocking_locks.pid;
 select '</table><p>' as info;
+
+\if :var_version_14p
+select '<P><table border="2"><tr><td colspan="2"><b>Blocking Locks</b> (PG14+)</td></tr>';
+select '<tr><td><b>Blocked Pid</b>',
+ '<td><b>Blocked User</b>',
+ '<td><b>Blocking Pid</b>',
+ '<td><b>Blocking User</b>',
+ '<td><b> Blocked Statement</b>',
+ '<td><b> Blocking Session Current Statement</b>',
+ '<td><b> Mode</b>',
+ '<td><b> Lock Type</b>',
+ '<td><b> Wait Start</b>'
+as info;
+SELECT '<tr><td>',blocked.pid AS blocked_pid,
+       '<td>',blocked.usename AS blocked_user,
+       '<td>',blocking.pid AS blocking_pid,
+       '<td>',blocking.usename AS blocking_user,
+       '<td>',blocked.query AS blocked_statement,
+       '<td>',blocking.query AS current_statement_in_blocking_process,
+       '<td>',mode, '<td>',locktype, '<td>',waitstart
+  FROM pg_stat_activity AS blocked
+  JOIN pg_locks AS lck ON blocked.pid = lck.pid
+  JOIN pg_stat_activity AS blocking ON blocking.pid = ANY(pg_blocking_pids(blocked.pid))
+ WHERE NOT lck.GRANTED
+ ORDER BY waitstart;
+select '</table><p>' as info;
+\endif
+
 
 select '<P><A NAME="lock"></A>'  as info;
 select '<P><table border="2"><tr><td><b>Locks</b></td></tr>'
@@ -1284,9 +1342,13 @@ select '</table><p><hr>' as info;
 select '<P><A NAME="stmt"></A><P>' as info;
 \if :var_version_14p
 SELECT '<p>Instance restart: '|| pg_postmaster_start_time(),
+       '  Now: '|| now(),
        '<br>Statement statistics reset: '|| stats_reset,
        ' Dealloc: '|| dealloc
   FROM pg_stat_statements_info;
+\else
+SELECT '<p>Instance restart: '|| pg_postmaster_start_time(),
+       '  Now: '|| now();
 \endif
 
 select '<!-- Report running: '|| now() || ' -->';
@@ -1370,14 +1432,14 @@ SELECT '<tr><td>'||replace(substring(query,1,8192),',',', '),
   '<td align="right">'||round((max_exec_time::numeric)/1000,3),
   '<td align="right">'||round(total_exec_time),
 --  '<td align="right">'||round(blk_read_time+blk_write_time),
-  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0))/1000,2),
-  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0))/1000,2),
+  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0)),2),
+  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0)),2),
   '<td align="right">'||round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2)  AS hit_percent,
   '<td align="right">'||round((wal_bytes::numeric)/(1024*1024),0)
   FROM pg_stat_statements 
  WHERE pg_get_userbyid(userid) not in ('enterprisedb', 'efm')  -- Comment if needed
    AND calls>0
- ORDER BY (total_exec_time::numeric/nullif(calls::numeric, 0)) DESC
+ ORDER BY max_exec_time DESC
  LIMIT 10;
 \else
 SELECT '<tr><td>'||replace(substring(query,1,8192),',',', '),
@@ -1386,13 +1448,13 @@ SELECT '<tr><td>'||replace(substring(query,1,8192),',',', '),
   '<td align="right">'||round((max_time::numeric)/1000,3),
   '<td align="right">'||round(total_time),
 --  '<td align="right">'||round(blk_read_time+blk_write_time),
-  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0))/1000,2),
-  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0))/1000,2),
+  '<td align="right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0)),2),
+  '<td align="right">'||round((rows::numeric / nullif(calls::numeric, 0)),2),
   '<td align="right">'||round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2)  AS hit_percent
   FROM pg_stat_statements 
  WHERE pg_get_userbyid(userid) not in ('enterprisedb', 'efm')  -- Comment if needed
    AND calls>0
- ORDER BY (total_time::numeric/nullif(calls::numeric, 0)) DESC
+ ORDER BY max_exec_time DESC
  LIMIT 10;
 \endif
 select '</table><p><hr>' as info;
@@ -1432,6 +1494,18 @@ select '<tr><td>'||schemaname,
  limit 20;
 select '</table><p>' as info;
 
+select '<P><table border="2"><tr><td colspan="4"><b>Tables Custom Storage Definition</b>' as info;
+select '<tr><td><b>Schema</b> <td><b>Table</b> <td><b>Storage Parameter</b>';
+select '<tr><td>'||n.nspname,
+   '<td>', t.relname,
+   '<td>', unnest(t.reloptions)
+  from pg_class t, pg_namespace n
+ where t.relnamespace=n.oid
+   and n.nspname not in('pg_catalog')
+ order by n.nspname, t.relname
+ limit 20;
+select '</table><p>' as info;
+
 select '<P><table border="2"><tr><td><b>Tables Caching</b>' as info;
 select '<tr><td><b>Schema</b><td><b>Table</b>',
  '<td><b>Heap Reads</b>',
@@ -1454,7 +1528,19 @@ select '<tr><td>'||schemaname,
  limit 20;
 select '</table><p>' as info;
 
-select '<P><pre><b>Tables without Unique Indexes</b><br>' as info;
+select '<P><pre><b>Tables without any Index</b><br>' as info;
+select tab.table_schema ||'.'|| tab.table_name
+  from information_schema.tables tab
+  left join pg_indexes tco 
+         on tab.table_schema = tco.schemaname
+         and tab.table_name = tco.tablename 
+         and (tco.indexdef like 'CREATE INDEX%' OR tco.indexdef like 'CREATE UNIQUE%')
+ where tab.table_type = 'BASE TABLE'
+   and tab.table_schema not in ('pg_catalog', 'information_schema', 'sys')
+   and tco. indexname is null
+ order by tab.table_schema, tab.table_name
+ limit 1000;
+select '<br><br><b>Tables without Unique Indexes</b><br>' as info;
 select tab.table_schema ||'.'|| tab.table_name
   from information_schema.tables tab
   left join pg_indexes tco 
@@ -1660,8 +1746,21 @@ ORDER BY table_scans DESC, table_size DESC, table_name, fk_name
  LIMIT 64;
 select '</table>' as info;
 
+select '<P><table border="2"><tr><td><b>Most used indexes</b>' as info;
+select '<tr><td><b>Schema</b><td><b>Relation</b>', '<td><b>Index</b>', '<td><b>Size</b>',
+        '<td><b>Idx Scan</b>', '<td><b>Idx Tuples Fetch</b>', '<td><b>Idx Tuples Read</b>';
+SELECT '<tr><td>',s.schemaname, '<td>',s.relname,
+       '<td>',s.indexrelname, '<td align="right">',pg_relation_size(s.indexrelid),
+       '<td align="right">',s.idx_scan, '<td align="right">',s.idx_tup_fetch, '<td align="right">',s.idx_tup_read  
+  FROM pg_catalog.pg_stat_user_indexes s
+  JOIN pg_catalog.pg_index i ON s.indexrelid = i.indexrelid
+ WHERE s.idx_scan>0
+ ORDER BY s.idx_scan DESC
+ LIMIT 16;
+select '</table><p>' as info;
+
 select '<P><table border="2"><tr><td><b>Unused indexes</b>' as info;
-select '<tr><td><b>Schema</b><td><b>Table</b>', '<td><b>Index</b>', '<td><b>Size</b>';
+select '<tr><td><b>Schema</b><td><b>Relation</b>', '<td><b>Index</b>', '<td><b>Size</b>';
 SELECT '<tr><td>',s.schemaname, '<td>',s.relname,
        '<td>',s.indexrelname, '<td align="right">',pg_relation_size(s.indexrelid)
   FROM pg_catalog.pg_stat_user_indexes s
@@ -1675,16 +1774,41 @@ SELECT '<tr><td>',s.schemaname, '<td>',s.relname,
  LIMIT 64;
 select '</table><p>' as info;
 
-select '<P><table border="2"><tr><td><b>Most used indexes</b>' as info;
-select '<tr><td><b>Schema</b><td><b>Table</b>', '<td><b>Index</b>', '<td><b>Size</b>', '<td><b>Scan</b>', '<td><b>Tuples</b>';
-SELECT '<tr><td>',s.schemaname, '<td>',s.relname,
-       '<td>',s.indexrelname, '<td align="right">',pg_relation_size(s.indexrelid),
-       '<td align="right">',s.idx_scan, '<td align="right">',s.idx_tup_fetch  
-  FROM pg_catalog.pg_stat_user_indexes s
-  JOIN pg_catalog.pg_index i ON s.indexrelid = i.indexrelid
- WHERE s.idx_scan>0
- ORDER BY s.idx_scan DESC
- LIMIT 16;
+select '<P><table border="2"><tr><td><b>Reduntant indexes</b>' as info;
+select '<tr><td><b>Schema</b><td><b>Relation</b>', '<td><b>Index</b>', '<td><b>DDL</b>' , '<td><b>Size</b>';
+SELECT '<tr><td>',ni.nspname, '<td>',ct.relname, 
+       '<td>',ci.relname AS dup_idx,
+       '<td>',pg_get_indexdef(i.indexrelid) AS dup_def,
+       '<td align="right">',pg_relation_size(i.indexrelid), 
+       -- i.indkey,
+       '<tr><td><td><td>',cii.relname AS enc_idx,   -- Encompassing index
+       '<td>',pg_get_indexdef(ii.indexrelid) AS enc_def,
+       '<td align="right">',pg_relation_size(ii.indexrelid),
+       '<!-- -->'
+       -- ii.indkey
+  FROM pg_index i
+  JOIN pg_class ct ON i.indrelid=ct.oid
+  JOIN pg_class ci ON i.indexrelid=ci.oid
+  JOIN pg_namespace ni ON ci.relnamespace=ni.oid
+  JOIN pg_index ii ON ii.indrelid=i.indrelid
+                  AND ii.indexrelid != i.indexrelid
+                  AND (array_to_string(ii.indkey, ' ') || ' ') like (array_to_string(i.indkey, ' ') || ' %')
+                  AND (array_to_string(ii.indcollation, ' ')  || ' ') like (array_to_string(i.indcollation, ' ') || ' %')
+                  AND (array_to_string(ii.indclass, ' ')  || ' ') like (array_to_string(i.indclass, ' ') || ' %')
+                  AND (array_to_string(ii.indoption, ' ')  || ' ') like (array_to_string(i.indoption, ' ') || ' %')
+                  AND NOT (ii.indkey::integer[] @> ARRAY[0])      -- Remove for expression indexes 
+                  AND NOT (i.indkey::integer[] @> ARRAY[0])       -- Remove for expression indexes 
+                  AND i.indpred IS NULL                           -- Remove for indexes with predicates
+                  AND ii.indpred IS NULL                          -- Remove for indexes with predicates
+                  AND CASE WHEN i.indisunique THEN ii.indisunique 
+                                                   AND array_to_string(ii.indkey, ' ') = array_to_string(i.indkey, ' ')
+                           ELSE true END
+  JOIN pg_class ctii ON ii.indrelid=ctii.oid
+  JOIN pg_class cii ON ii.indexrelid=cii.oid
+ WHERE ci.relname > cii.relname      -- Alternative trick to show the couples only once (works for 2)
+    -- ct.relname NOT LIKE 'pg_%'
+    -- NOT i.indisprimary
+ ORDER BY 1, 2, 3;
 select '</table><p>' as info;
 
 select '<P><table border="2"><tr><td><b>All indexes</b>' as info;
@@ -1774,8 +1898,8 @@ select '<tr><td>',name,
                'max_fsm_pages','fsync','commit_delay','commit_siblings','random_page_cost', 'synchronous_standby_names',
                'checkpoint_timeout', 'max_wal_size',
                'bgwriter_lru_maxpages', 'bgwriter_lru_multiplier', ' bgwriter_delay',
-               'autovacuum_vacuum_cost_limit', 'autovacuum_vacuum_cost_delay') 
- order by name; 
+               'autovacuum_vacuum_cost_limit', 'vacuum_cost_limit', 'autovacuum_vacuum_cost_delay', 'vacuum_cost_delay') 
+ order by context, name; 
 select '</table><p><hr>' as info;
 
 
@@ -2430,13 +2554,13 @@ select t2.*
     from (
     select schemaname||'.'||tablename as tab_name, attname as col_name, avg_width,
            array_dims(coalesce(most_common_vals::text::text[], array['-'])),
-           substr(unnest(coalesce(most_common_vals::text::text[], array['-'])), 1,20) val, 
+           substr(unnest(coalesce(most_common_vals::text::text[], array['-'])), 1,60) val, 
            unnest(coalesce(most_common_freqs::text::text[], array['0'])) freq, null_frac
       from pg_stats
      where schemaname not in ('pg_catalog', 'information_schema')
        and tablename in ('pgbench_accounts')
      order by 1, 2, 6 desc ) tstat ) t2
- where sample<10
+ where sample<=10
 order by 2,3,7 desc;
 
 -- Extended Statistics
@@ -2451,7 +2575,8 @@ SELECT es.stxnamespace::pg_catalog.regnamespace::text || '.'||
                   AND a.attnum = s.attnum AND NOT a.attisdropped)),
          es.stxrelid::regclass) AS definition,
        CASE WHEN 'd' = any(es.stxkind) THEN 'X' END AS "Ndistinct",
-       CASE WHEN 'f' = any(es.stxkind) THEN 'X' END AS "Dependencies",
+       CASE WHEN 'f' = any(es.stxkind) THEN 'X' END AS "Dependency",
+       CASE WHEN 'e' = any(es.stxkind) THEN 'X' END AS "Expression",
        CASE WHEN 'm' = any(es.stxkind) THEN 'X' END AS "MCV"
   FROM pg_catalog.pg_statistic_ext es
  ORDER BY 1, 2;
@@ -2469,7 +2594,7 @@ select t2.*
      where schemaname not in ('pg_catalog', 'information_schema')
      order by 1,2,3, 7 desc ) tstat
     where freq is not null ) t2
- where sample<10
+ where sample<=10
 order by 2,3,4,8 desc;
 
     \if 0
@@ -2518,9 +2643,11 @@ select '<P><table border="2"><tr><td><b>Additional PG9.6+ Statistics</b></td></t
 select '<tr><td><pre>' as info;
 \pset tuples_only
 \a
-select p.pid, p.phase, heap_blks_total, heap_blks_scanned, heap_blks_vacuumed, a.state, a.wait_event_type, a.wait_event, a.query
-  from pg_stat_progress_vacuum p, pg_stat_activity a
- where p.pid=a.pid;
+select p.pid, p.phase, p.heap_blks_total, p.heap_blks_scanned, p.heap_blks_vacuumed,
+       c.relname, a.state, a.wait_event_type, a.wait_event, a.query
+  from pg_stat_progress_vacuum p, pg_stat_activity a, pg_class c
+ where p.pid=a.pid
+   and p.relid=c.oid;
 
 \pset tuples_only
 \a
@@ -2532,6 +2659,12 @@ select '<P><table border="2"><tr><td><b>Additional PG12+ Statistics</b></td></tr
 select '<tr><td><pre>' as info;
 \pset tuples_only
 \a
+select p.pid, p.phase, p.heap_blks_total, p.heap_blks_scanned,
+       c.relname, a.state, a.wait_event_type, a.wait_event, a.query
+  from pg_stat_progress_cluster p, pg_stat_activity a, pg_class c
+ where p.pid=a.pid
+   and p.relid=c.oid;
+
 SELECT name as temporary_filename, size, modification
   FROM pg_ls_tmpdir()
  ORDER BY modification DESC;
@@ -2604,6 +2737,9 @@ SELECT *
 
 SELECT *
   from pg_stat_statements_info;
+
+SELECT *
+  from pg_stat_database;
 
 SELECT *
   from pg_stats_ext_exprs;
@@ -2691,7 +2827,13 @@ select '<P><table border="2"><tr><td><b>Additional PG18+ Statistics</b></td></tr
 select '<tr><td><pre>' as info;
 \pset tuples_only
 \a
-select 'April the 1st is too early!';
+select 'April the 1st is too early!' as placeholder;
+
+select * from pg_aios;
+select * from pg_ls_summariesdir();
+select * pg_get_loaded_modules();
+-- select * from pg_shmem_allocations_numa;
+
 \pset tuples_only
 \a
 select '</pre></table><p>' as info;
@@ -2914,7 +3056,8 @@ select *
   from all_objects
  where schema_name not in ('SYS')
  order by last_ddl_time desc
- limit 40;
+ limit 100;
+-- On complex databases (eg. overpartitioned) can raise ERROR:  53200: out of shared memory
 
  select *
   from all_users
@@ -3096,7 +3239,8 @@ select '<br>More info on' as info;
 select '<A HREF="http://meoshome.it.eu.org#post">this site</A>' as info;
 
 select '<br> Copyright: 2025 meob - License: GNU General Public License v3.0' as info;
-select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' as info;
+select '<br> Sources: https://github.com/meob/db2html/ <p>' as info;
+select '</body></html>' as info;
 \pset tuples_only
 \a
 \o
