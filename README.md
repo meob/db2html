@@ -7,8 +7,8 @@ db2html contains powerful SQL scripts that collect database configuration from s
 * PostgreSQL
 * ClickHouse
 
-The scripts are periodically upgraded in order to use the newest functionality from RDBMS
-while maintaining backward compatibility (eg. Oracle 23ai, PostgreSQL 17, MySQL 8.4, MariaDB 10+, ...)
+The scripts are periodically upgraded in order to use the newest functionality from RDBMS (eg. Oracle 26ai, PostgreSQL 18, MySQL 8.4, MariaDB 11.8, ...)
+while maintaining backward compatibility.
 
 Each database has its own .zip file but the structure is the same:
 there are simple and easy to customize SQL scripts that discover
@@ -19,7 +19,7 @@ db2html contains very useful scripts for DBAs and database power users.
 
 ## ora2html - Oracle
 ora2html.zip contains several useful Oracle DBA scripts:
-*  ora2html.sql: is an easy and flexible script to collect Oracle RDBMS Configuration since 7.1 and up to 23ai
+*  ora2html.sql: is an easy and flexible script to collect Oracle RDBMS Configuration since 7.1 and up to 26ai
 *  custom.sql: ora2html Plug-in script launcher (eg. RAC, Data Guard, ASM, Oracle 12c, ...)
 *  whodo.sql: current database usage
 *  dg2html.sql: Data Guard Standby Instance configuration
@@ -42,7 +42,7 @@ The zip file contains other useful scripts like:
 
 ## my2html - MySQL
 my2html is an easy and flexible tool to collect MySQL DBs configuration
-my2html works fine on MySQL >= 5.0 and forks but version specific scripts are available too (eg. 3.23, 8.0, MariaDB)
+my2html works fine on MySQL >= 5.0 and forks but version specific scripts are available too (eg. 3.23, 8.0+, MariaDB)
 
 ### Usage
 > vi my2html.sh		# If Your need to change the password  
@@ -51,7 +51,7 @@ my2html works fine on MySQL >= 5.0 and forks but version specific scripts are av
 
 ## pg2html - PostgreSQL
 pg2html is an easy and flexible tool to collect PostgreSQL configuration
-pg2html has been designed to work on all PostgreSQL releases since 7.0 and had been tested up to 17
+pg2html has been designed to work on all PostgreSQL releases since 7.0 and had been tested up to 18
 
 ### Usage
 Login as postgres user then  
@@ -81,3 +81,4 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/
+
