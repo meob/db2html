@@ -51,7 +51,8 @@ my2html works fine on MySQL >= 5.0 and forks but version specific scripts are av
 
 ## pg2html - PostgreSQL
 pg2html is an easy and flexible tool to collect PostgreSQL configuration
-pg2html has been designed to work on all PostgreSQL releases since 7.0 and had been tested up to 18
+pg2html has been designed to work on all PostgreSQL releases since 10 and had been tested up to 18
+A script legacy version is available too for very old versions from 7.0 to 10
 
 ### Usage
 Login as postgres user then  
@@ -81,4 +82,5 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/
+
 
