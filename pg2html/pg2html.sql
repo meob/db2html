@@ -2,7 +2,7 @@
 -- Info:    PostgreSQL psql report in HTML
 --          Works with PostgreSQL 10 or sup. (tested and updated up to PG 18)
 -- Date:    2008-08-15
--- Version: 1.0.32 on 2025-10-01
+-- Version: 1.0.32a on 2025-10-31
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -50,6 +50,7 @@
 --          1.0.32 Latest versions update; modernized HTML with sortable tables and better formatting;
 --                 added QueryID where possible, operational and performance KPIs
 --                 **NB** To take advantage of the new graphic features style.css and util.js files must be downloaded too.
+--                 (a) more KPIs
 
 \set var_as_admin 1
 
@@ -60,7 +61,7 @@
 \o pg.htm
 
 select '<!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="style.css">';
-select '<title>pg2html - PostgreSQL Statistics</title></head><body>';
+select '<title>'||current_database()||' - PostgreSQL Statistics - pg2html</title></head><body>';
 select '<h1>PostgreSQL - '||current_database()||'</h1>' ;
 
 select '<div id="top"></div>';
@@ -71,7 +72,7 @@ select '<a href="#ver">Versions</a><br>' ;
 select '<a href="#dbs">Databases</a><br>' ;
 select '<a href="#obj">Schema/Object Matrix</a><br>' ;
 select '<a href="#tbs">Tablespaces</a><br>' ;
-select '<a href="#usg">Space Usage</a> (<a href="#vacuum">VACUUM</a>&amp;<a href="#vacuum">Analyze</a>, <a href="#xid">XID</a>)<br>';
+select '<a href="#usg">Space Usage</a> (<a href="#vacuum">VACUUM</a>, <a href="#bloat">Bloat</a>, <a href="#xid">XID</a>)<br>';
 select '<a href="#usr">Users</a><br>' ;
 select '<a href="#sql">Sessions</a>  (<a href="#sql_g">Grouped</a>, <a href="#sql_x">All</a>, <a href="#sql_x">Active</a>) <br>' ;
 select '<a href="#lockd">Locks</a><br>' ;
@@ -96,7 +97,7 @@ select '</table><p><hr>' ;
 select '<p>Report generated on: '|| now();
 select 'on database: <strong>'||current_database()||'</strong>' ;
 select 'by user: '||user ;
-select 'using: <em><strong>pg2html.sql</strong> v.1.0.32</em>' ;
+select 'using: <em><strong>pg2html.sql</strong> v.1.0.32a</em>' ;
  
 select '<hr><h2 id="status">Summary</h2>';
 select '<table class="bordered"><thead><tr><th scope="col">Item</th><th scope="col">Value</th></tr></thead><tbody>' ;
@@ -213,7 +214,7 @@ SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num')
   in (1500, 1600, 1700, 1800) THEN 'YES'
   ELSE 'NO' END; -- last2 release
 SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
-  in (90624,100023, 110022,110021,110020,120021,
+  in (90624,100023,110022,120022,
   130021,130022,130023,
   140018,140019,140020,
   150013,150014,150015,
@@ -222,7 +223,7 @@ SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
   180000,180001,180002) THEN 'YES'
   ELSE 'NO' END; -- last2 update
 select '<td>Latest Releases: 18.0, 17.6, 16.10, 15.14, 14.19, 13.22';
-select '    <br>Latest Unsupported: 18.RC1, 12.22, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
+select '    <br>Latest Unsupported: 12.22, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
 select '    8.4.21, 8.3.23, 8.2.23, 8.1.23, 8.0.26; 7.4.30, 6.5.3';
 select '</table><p><hr>';
 
@@ -238,11 +239,12 @@ select '<tr><td>'||datname, '<td>',oid, '<td>',datdba::regrole::text,
   from pg_database
  where not datistemplate
  order by oid;
-select '<tr><td>TOTAL (MB)','<td>',
- '<td class="align-right">'||count(*),
- '<td class="align-right">'||trunc(sum(pg_database_size(datname))/(1024*1024)),
+select '<tr><td>TOTAL',
+ '<td class="align-right">'||count(*),'<td>',
+ '<td class="align-right">'||sum(pg_database_size(datname)),
  '<td class="align-right">'||pg_size_pretty(sum(pg_database_size(datname))::int8)
-from pg_database;
+  from pg_database
+ where not datistemplate;
 select '</table><p><hr>' ;
 
 
@@ -286,7 +288,7 @@ where relowner=pg_roles.oid
   and rolname not in ('enterprisedb', 'alloydbadmin', 'cloudsqladmin')
 group by rolname, nspname
 order by nspname, rolname;
-select '<tr><td>TOTAL<td>TOTAL',
+select '<tr><td>TOTAL<td>',
  '<td class="align-right">'||sum(case when relkind='r' THEN 1 ELSE 0 end),
  '<td class="align-right">'||sum(case when relkind='i' THEN 1 ELSE 0 end),
  '<td class="align-right">'||sum(case when relkind='p' THEN 1 ELSE 0 end),
@@ -518,7 +520,7 @@ where relkind='r';
 select '</table><p>' ;
 
 
-select '<h2 id="vacuum">Vacuum and Analyze</h2><table class="bordered">' ;
+select '<h2 id="vacuum">Vacuum and Analyze</h2><table class="bordered"><caption>Last VACUUM and ANALYZE</caption>' ;
 select '<tr><th># Tables</th>',
  '<th>Last autoVACUUM</th>',
  '<th>Last VACUUM</th>',
@@ -530,7 +532,29 @@ select '<tr><td class="align-right">'||count(*), '<td>'||coalesce(max(last_autov
  from pg_stat_user_tables;
 select '</table><p>' ;
 
-select '<table class="bordered"><caption>High dead tuples</caption>' ;
+select '<table id="vacuum2" class="bordered"><caption>Active VACUUMs</caption>' ;
+select '<tr><th>Pid</th>',
+ '<th>Phase</th>',
+ '<th>Heap blocks total</th>',
+ '<th>Heap blocks scanned</th>',
+ '<th>Heap blocks VACUUMed</th>',
+ '<th>Relation</th>',
+ '<th>State</th>',
+ '<th>Wait event type</th>',
+ '<th>Wait event</th>',
+ '<th>Query</th>'
+as info;
+select '<tr><td>'||p.pid, '<td>'||p.phase, 
+       '<td class="align-right">'||p.heap_blks_total, '<td class="align-right">'||p.heap_blks_scanned, 
+       '<td class="align-right">'||p.heap_blks_vacuumed,
+       '<td>'||c.relname, '<td>'||a.state, '<td>'||a.wait_event_type, '<td>'||a.wait_event, 
+       '<td>'||a.query
+  from pg_stat_progress_vacuum p, pg_stat_activity a, pg_class c
+ where p.pid=a.pid
+   and p.relid=c.oid;
+select '</table><p>' ;
+
+select '<table id="dead" class="bordered"><caption>High dead tuples</caption>' ;
 select '<tr><th>Table</th>',
  '<th>Tuples</th>',
  '<th>Dead tuples</th>',
@@ -570,7 +594,7 @@ select '<tr><td>'||schemaname||'.'||relname,
  limit 5;
 select '</table><p>' ;
 
-select '<table class="bordered"><caption>Bloated tables (estimated size)</caption>' ;
+select '<table id="bloat" class="bordered"><caption>Bloated tables (estimated size)</caption>' ;
 select '<tr><th>Table (top size)</th>',
  '<th>Fillfactor</th>',
  '<th>Table Size</th>',
@@ -704,8 +728,68 @@ where not is_na
 ORDER BY 10 desc, 6 desc limit 5;
 select '</table><p>' ;
 
-select '<h2 id="xid">Max age</h2>' ;
-select '<table class="bordered"><caption>Databases</caption>' ;
+
+select '<table class="bordered"><caption>Total Table Bloat (estimated)</caption>' ;
+select '<tr><th>Total table size</th>',
+ '<th>Max table bloat</th>', 
+ '<th>Total table bloat</th>',
+ '<th>Bloat%</th>';
+WITH raw AS (
+  SELECT
+    bs * tblpages AS real_size,
+    CASE WHEN tblpages - est_tblpages_ff > 0
+         THEN (tblpages - est_tblpages_ff) * bs
+         ELSE 0
+    END AS bloat_size
+  FROM (
+    SELECT ceil( reltuples / ( (bs-page_hdr)*fillfactor/(tpl_size*100) ) ) + ceil( toasttuples / 4 ) AS est_tblpages_ff,
+      tblpages, fillfactor, bs, tblid, schemaname, tblname, heappages, toastpages, is_na
+    FROM (
+      SELECT
+        ( 4 + tpl_hdr_size + tpl_data_size + (2*ma)
+          - CASE WHEN tpl_hdr_size%ma = 0 THEN ma ELSE tpl_hdr_size%ma END
+          - CASE WHEN ceil(tpl_data_size)::int%ma = 0 THEN ma ELSE ceil(tpl_data_size)::int%ma END
+        ) AS tpl_size, bs - page_hdr AS size_per_block, (heappages + toastpages) AS tblpages,
+        heappages, toastpages, reltuples, toasttuples, bs, page_hdr, tblid, schemaname, tblname,
+        fillfactor, is_na
+      FROM (
+        SELECT
+          tbl.oid AS tblid, ns.nspname AS schemaname, tbl.relname AS tblname, tbl.reltuples,
+          tbl.relpages AS heappages, COALESCE(toast.relpages, 0) AS toastpages,
+          COALESCE(toast.reltuples, 0) AS toasttuples,
+          COALESCE(SUBSTRING(array_to_string(tbl.reloptions, ' ')
+                   FROM 'fillfactor=([0-9]+)')::smallint, 100) AS fillfactor,
+          current_setting('block_size')::numeric AS bs,
+          CASE WHEN version()~'64-bit|x86_64|amd64' THEN 8 ELSE 4 END AS ma,
+          24 AS page_hdr,
+          23 + CASE WHEN MAX(COALESCE(s.null_frac,0)) > 0 THEN (7 + COUNT(s.attname))/8 ELSE 0::int END
+             + CASE WHEN BOOL_OR(att.attname = 'oid' AND att.attnum < 0) THEN 4 ELSE 0 END AS tpl_hdr_size,
+          SUM((1-COALESCE(s.null_frac,0)) * COALESCE(s.avg_width,0)) AS tpl_data_size,
+          BOOL_OR(att.atttypid = 'pg_catalog.name'::regtype)
+            OR SUM(CASE WHEN att.attnum > 0 THEN 1 ELSE 0 END) <> COUNT(s.attname) AS is_na
+        FROM pg_attribute AS att
+          JOIN pg_class AS tbl ON att.attrelid = tbl.oid
+          JOIN pg_namespace AS ns ON ns.oid = tbl.relnamespace
+          LEFT JOIN pg_stats AS s ON s.schemaname = ns.nspname
+              AND s.tablename = tbl.relname AND s.inherited = false AND s.attname = att.attname
+          LEFT JOIN pg_class AS toast ON tbl.reltoastrelid = toast.oid
+        WHERE NOT att.attisdropped AND tbl.relkind IN ('r','m')
+        GROUP BY 1,2,3,4,5,6,7,8,9,10
+      ) AS s
+    ) AS s2
+  ) AS s3
+  WHERE NOT is_na AND tblpages - est_tblpages_ff > 1 AND est_tblpages_ff > 2
+)
+SELECT
+  '<tr><td>'||pg_size_pretty(SUM(real_size)) AS total_table_size,
+  '<td class="align-right">', pg_size_pretty(max(bloat_size)::numeric) AS max_table_bloat,
+  '<td class="align-right">', pg_size_pretty(SUM(bloat_size)::numeric) AS total_bloat_size,
+  '<td class="align-right">', round(100 * SUM(bloat_size)::numeric / NULLIF(SUM(real_size),0), 2) AS bloat_pct
+FROM raw;
+select '</table><p>' ;
+
+
+select '<table id="xid" class="bordered"><caption>Database Max Age</caption>' ;
 select '<tr><th>Database</th>',
  '<th>Max XID age</th>', 
  '<th>% Wraparound</th>';
@@ -716,10 +800,24 @@ SELECT '<tr><td>'||datname||'<td class="align-right">', age(datfrozenxid), '<td 
  limit 32;
 select '</table><p>' ;
 
-select '<table class="bordered"><caption>Relations</caption>' ;
-select '<tr><th>Table</th>', '<th>XID age</th>',  '<th>Overdue</th>',  '<th>HR Size</th>', '<th>HR Total Size</th>';
+select '<table class="bordered"><caption>Object Max Age</caption>' ;
+select '<tr><th>Object</th>', '<th>Type</th>', '<th>XID age</th>',  '<th>Overdue</th>',  '<th>HR Size</th>', '<th>HR Total Size</th>';
 select  '<th>% AV Aggressive</th>', '<th>% AV Anti-wrap</th>', '<th>% Wraparound</th>';
-SELECT '<tr><td>'|| nspname ||'.'|| relname ||'<td class="align-right">', age(relfrozenxid),
+SELECT '<tr><td>'|| nspname ||'.'|| relname, '<td>',
+       case WHEN relkind='r' THEN 'Table' 
+            WHEN relkind='i' THEN 'Index'
+            WHEN relkind='p' THEN 'Partitioned Table'
+            WHEN relkind='I' THEN 'Partitioned Index'
+            WHEN relkind='v' THEN 'View'
+            WHEN relkind='S' THEN 'Sequence'
+            WHEN relkind='c' THEN 'Composite Type'
+            WHEN relkind='f' THEN 'Foreign Table'
+            WHEN relkind='t' THEN 'TOAST Table'
+            WHEN relkind='m' THEN 'Materialized View'
+            ELSE relkind::text end ||
+       case when relispartition then '  Partition'
+            else '' end,
+       '<td class="align-right">', age(relfrozenxid),
        '<td class="align-right">', age(relfrozenxid) - current_setting('vacuum_freeze_table_age')::integer,
        '<td class="align-right">', pg_size_pretty(pg_relation_size(pg_class.oid)),
        '<td class="align-right">', pg_size_pretty(pg_total_relation_size(pg_class.oid)),
@@ -728,8 +826,8 @@ SELECT '<tr><td>'|| nspname ||'.'|| relname ||'<td class="align-right">', age(re
        '<td class="align-right">',round(100.0 * (age(relfrozenxid)::numeric/2^31)::numeric(6,4), 2) "%Wraparound"
   FROM pg_class
   JOIN pg_namespace ON pg_class.relnamespace = pg_namespace.oid
- WHERE relkind in ('r', 'm', 't', 'f')
- ORDER by 2 DESC
+ WHERE relkind in ('r', 'm', 't')
+ ORDER by 5 DESC
  LIMIT 5;
 select '</table><p><hr>' ;
 
@@ -1349,7 +1447,7 @@ select '<tr><td>Long-running active queries',' <td class="align-right">', -- Lon
        '<td> = 0'
   from pg_stat_activity
  where state = 'active'
-   and backend_type<>'walsender'
+   and backend_type not in ('walsender', 'autovacuum worker')
    and (now() - query_start) > '5 minutes'::interval;
 
 select '<tr><td>Idle in Transaction',' <td class="align-right">', -- Idle in Transaction Count
@@ -1358,6 +1456,14 @@ select '<tr><td>Idle in Transaction',' <td class="align-right">', -- Idle in Tra
   from pg_stat_activity
  where state='idle in transaction'
    and (now() - state_change) > '30 second'::interval;
+
+select '<tr><td>Oldest transaction age (s)',' <td class="align-right">',  -- Oldest transaction age (s)
+       round(EXTRACT(EPOCH FROM (now() - min(query_start))), 2),
+       '<td> &lt; 3600'
+  from pg_stat_activity
+ where state='active'
+   and pid <> pg_backend_pid()
+   and backend_type <> 'walsender';
 
 select '<tr><td>Invalid indexes',' <td class="align-right">', -- Invalid indexes
        count(*),
@@ -1371,11 +1477,65 @@ select '<tr><td>Max Dead Tuples %',' <td class="align-right">', -- High Dead Tup
   from pg_stat_all_tables
  where n_dead_tup>1000;
 
+WITH raw AS (
+  SELECT
+    bs * tblpages AS real_size,
+    CASE WHEN tblpages - est_tblpages_ff > 0
+         THEN (tblpages - est_tblpages_ff) * bs
+         ELSE 0
+    END AS bloat_size
+  FROM (
+    SELECT ceil( reltuples / ( (bs-page_hdr)*fillfactor/(tpl_size*100) ) ) + ceil( toasttuples / 4 ) AS est_tblpages_ff,
+      tblpages, fillfactor, bs, tblid, schemaname, tblname, heappages, toastpages, is_na
+    FROM (
+      SELECT
+        ( 4 + tpl_hdr_size + tpl_data_size + (2*ma)
+          - CASE WHEN tpl_hdr_size%ma = 0 THEN ma ELSE tpl_hdr_size%ma END
+          - CASE WHEN ceil(tpl_data_size)::int%ma = 0 THEN ma ELSE ceil(tpl_data_size)::int%ma END
+        ) AS tpl_size, bs - page_hdr AS size_per_block, (heappages + toastpages) AS tblpages,
+        heappages, toastpages, reltuples, toasttuples, bs, page_hdr, tblid, schemaname, tblname,
+        fillfactor, is_na
+      FROM (
+        SELECT
+          tbl.oid AS tblid, ns.nspname AS schemaname, tbl.relname AS tblname, tbl.reltuples,
+          tbl.relpages AS heappages, COALESCE(toast.relpages, 0) AS toastpages,
+          COALESCE(toast.reltuples, 0) AS toasttuples,
+          COALESCE(SUBSTRING(array_to_string(tbl.reloptions, ' ')
+                   FROM 'fillfactor=([0-9]+)')::smallint, 100) AS fillfactor,
+          current_setting('block_size')::numeric AS bs,
+          CASE WHEN version()~'64-bit|x86_64|amd64' THEN 8 ELSE 4 END AS ma,
+          24 AS page_hdr,
+          23 + CASE WHEN MAX(COALESCE(s.null_frac,0)) > 0 THEN (7 + COUNT(s.attname))/8 ELSE 0::int END
+             + CASE WHEN BOOL_OR(att.attname = 'oid' AND att.attnum < 0) THEN 4 ELSE 0 END AS tpl_hdr_size,
+          SUM((1-COALESCE(s.null_frac,0)) * COALESCE(s.avg_width,0)) AS tpl_data_size,
+          BOOL_OR(att.atttypid = 'pg_catalog.name'::regtype)
+            OR SUM(CASE WHEN att.attnum > 0 THEN 1 ELSE 0 END) <> COUNT(s.attname) AS is_na
+        FROM pg_attribute AS att
+          JOIN pg_class AS tbl ON att.attrelid = tbl.oid
+          JOIN pg_namespace AS ns ON ns.oid = tbl.relnamespace
+          LEFT JOIN pg_stats AS s ON s.schemaname = ns.nspname
+              AND s.tablename = tbl.relname AND s.inherited = false AND s.attname = att.attname
+          LEFT JOIN pg_class AS toast ON tbl.reltoastrelid = toast.oid
+        WHERE NOT att.attisdropped AND tbl.relkind IN ('r','m')
+        GROUP BY 1,2,3,4,5,6,7,8,9,10
+      ) AS s
+    ) AS s2
+  ) AS s3
+  WHERE NOT is_na AND tblpages - est_tblpages_ff > 1 AND est_tblpages_ff > 2
+)
+select '<tr><td>Table Bloat %',' <td class="align-right">',    -- Table Bloat Percentage
+       round(100 * SUM(bloat_size)::numeric / NULLIF(SUM(real_size),0), 2),
+       '<td> &lt; 50',
+       '<tr><td>Largest Bloat Table',' <td class="align-right">',    -- Largest Table Bloat
+       pg_size_pretty(max(bloat_size)::numeric),
+       '<td> &lt; 10 GB'
+FROM raw;
+
 select '<tr><td>Autovacuum Freeze %',' <td class="align-right">', -- Autovacuum Freeze
        max(round(100.0 * age(relfrozenxid) / current_setting('vacuum_freeze_table_age')::int, 2)),
        '<td> &lt; 95'
   FROM pg_class
- WHERE relkind in ('r', 'm', 't', 'f');
+ WHERE relkind in ('r', 'm', 't');
 
 select '<tr><td>Transaction ID wraparound risk',' <td class="align-right">', -- Transaction ID wraparound risk
        round(100.0 * (age(datfrozenxid) / (SELECT setting::numeric FROM pg_settings WHERE name = 'autovacuum_freeze_max_age'))::numeric, 2),
@@ -1387,6 +1547,12 @@ select '<tr><td>Replication lag',' <td class="align-right">', -- Replication lag
        max(replay_lag),
        '<td> &lt; 1'
   from pg_stat_replication;
+
+select '<tr><td>Replication slot lag (bytes)',' <td class="align-right">',  -- Replication slot lag (bytes)
+       max(pg_current_wal_lsn() - restart_lsn),
+       '<td> &lt; 1 GB'
+  from pg_replication_slots
+ where active;
 
 select '<tr><td>Cache Hit %',' <td class="align-right">', -- Cache Hit
        round(100.0 * blks_hit / (blks_hit + blks_read), 2),
@@ -1404,17 +1570,24 @@ select '<tr><td>Timed Checkpoint %',' <td class="align-right">', -- Timed Checkp
        '<td> &gt; 90'
   from pg_stat_bgwriter;
 
+select '<tr><td>Checkpoints requested %',' <td class="align-right">',   -- Checkpoints requested percentage
+       round(100.0 * checkpoints_req / nullif(checkpoints_timed + checkpoints_req, 0), 2),
+       '<td> &lt; 10'
+  from pg_stat_bgwriter;
+
 select '<tr><td>Database size',' <td class="align-right">', -- Database size
        pg_size_pretty(pg_database_size(datname)),
        '<td> &lt; 1 TB'
   from pg_database
  where datname=current_database();
 
-select '<tr><td>DBCPU%',' <td class="align-right">', -- DB CPU
-       round((sum(total_exec_time) / (EXTRACT(EPOCH FROM (now() - (SELECT stats_reset FROM pg_stat_statements_info LIMIT 1))) * 1000) * 100)::numeric, 2),
+\if :var_version_14p
+select '<tr><td>DBcpu %',' <td class="align-right">', -- DB CPU
+       round((sum(total_exec_time) / (EXTRACT(EPOCH FROM (now() - (SELECT stats_reset FROM pg_stat_statements_info))) * 1000) * 100)::numeric, 2),
        '<td> &lt; 50'
   from pg_stat_statements
  where toplevel;
+\endif
 
 select '<tr><td>Active time %',' <td class="align-right">', -- Database Active Time
        round(active_time::decimal/1000*100/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,2),
@@ -1428,7 +1601,7 @@ select '<tr><td>TPS',' <td class="align-right">', -- TPS
   from pg_stat_database
  where datname=current_database();
 
-select '<tr><td>Rollback%',' <td class="align-right">', -- Rollback Ratio
+select '<tr><td>Rollback %',' <td class="align-right">', -- Rollback Ratio
        round((xact_rollback::decimal/xact_commit)*100, 2),
        '<td> &lt; 1'
   from pg_stat_database
@@ -1491,10 +1664,24 @@ select '<tr><td>Too much objects',' <td class="align-right">', -- Too much objec
 where relowner=pg_roles.oid
   and rolname not in ('enterprisedb', 'alloydbadmin', 'cloudsqladmin');
 
+select '<tr><td>Overpartitioning count',' <td class="align-right">', -- Overpartitioning count (small partitions excluding newest)
+       count(sp.oid),
+       '<td> = 0'
+  from (
+        SELECT p.oid, p.relname, p.reltuples, pg_relation_size(p.oid) as rel_size
+        FROM pg_class p
+        JOIN pg_namespace n ON n.oid = p.relnamespace
+        WHERE p.relispartition
+          AND p.relkind = 'r' -- regular table
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND (pg_relation_size(p.oid) < 8192 * 10 OR p.reltuples < 1000)
+    ) AS sp
+    WHERE sp.oid NOT IN (SELECT oid FROM pg_class WHERE relispartition AND relkind = 'r' ORDER BY oid DESC LIMIT 1);
+
 select '</tbody></table><p><hr>' ;
 
 
-select '<h2 id="stmt">Statements Statistics</h2>' ;
+select '<h2 id="stmt">Statements Statistics</h2>';
 \if :var_version_14p
 SELECT '<p>Instance restart: '|| pg_postmaster_start_time(),
        '  Now: '|| now(),
@@ -1508,7 +1695,7 @@ SELECT '<p>Instance restart: '|| pg_postmaster_start_time(),
 
 select '<!-- Report running: '|| now() || ' -->';
 select '<p><table class="bordered sortable sfont"><caption>Statement Statistics</caption><thead><tr>';
-select '<th scope="col" class="tac tooltip">Query <span class="tooltiptext">Query, click on the text to see it in full</span></th>';
+select '<th scope="col" class="tac tooltip">Query <span class="tooltiptext">Query, click on the text to see the full query text</span></th>';
 select '<th scope="col" class="tac tooltip">User <span class="tooltiptext">The user executing the statement</span></th>';
 select '<th scope="col" class="tac tooltip">Calls <span class="tooltiptext">Total executions</span></th>';
 select '<th scope="col" class="tac tooltip">Average<span class="tooltiptext">Average execution time expressed in seconds</span></th>';
@@ -2570,6 +2757,46 @@ SELECT * FROM postgres_fdw_get_connections() ORDER BY 1;
 select '</div></table><p><hr>' ;
 \endif
 
+select '<p><a id="bloat_approx"></a>'  ;
+select '<p><table class="bordered"><tr><th>Approximate Bloat KPI </th></tr>';
+select '<tr><td><p><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+-- Very, very raw Bloat Estimate
+WITH table_stats AS (
+  SELECT
+    c.oid,
+    n.nspname AS schema_name,
+    c.relname AS table_name,
+    pg_relation_size(c.oid) AS table_size,
+    c.reltuples,
+    COALESCE(SUM(s.avg_width * (1 - s.null_frac)), 0) AS avg_row_size
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  LEFT JOIN pg_stats s
+    ON s.schemaname = n.nspname
+   AND s.tablename = c.relname
+  WHERE c.relkind = 'r'                 -- solo tabelle
+    AND c.reltuples > 0                 -- evita tabelle vuote
+    AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+  GROUP BY c.oid, n.nspname, c.relname, c.reltuples
+),
+bloat_estimate AS (
+  SELECT
+    SUM(table_size) AS total_size,
+    SUM(GREATEST(table_size - (reltuples * avg_row_size), 0)) AS bloat_bytes
+  FROM table_stats
+)
+SELECT
+  pg_size_pretty(total_size) AS total_table_size,
+  pg_size_pretty(bloat_bytes::numeric) AS approx_bloat_size,
+  ROUND(100 * bloat_bytes::numeric / NULLIF(total_size, 0), 2) AS bloat_pct
+FROM bloat_estimate;
+
+\pset tuples_only
+\a
+select '</div></table><p><hr>' ;
 
 \if :opt_pgstattuple
 select '<p><a id="pgstattuple"></a>'  ;
