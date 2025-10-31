@@ -2,7 +2,7 @@
 -- Info:    ClickHouse report in HTML
 --          Best with ClickHouse 19 or sup.
 -- Date:    2018-02-14
--- Version: 1.0.12 on 2024-08-15
+-- Version: 1.0.13 on 2025-10-31
 -- Author:  Bartolomeo Bogliolo (meo) mail@meo.bogliolo.name
 -- License: Apache License 2.0
 --
@@ -19,51 +19,52 @@
 --          1.0.9 Users and grants, detached parts, errors, latest versions update (a) latest versions update (b) minor updates
 --          1.0.10 Latest versions update (2023-08-15)
 --          1.0.11 Latest versions update (2024-02-14). (a) metric_log and asynchronous_metric_log statistics
---          1.0.12 Latest versions update (2024-08-15). (a) version update (b) version update, formatting
+--          1.0.12 Latest versions update (2024-08-15). (a) version update (b) version update, formatting (c) version update
+--          1.0.13 New CSS and .JS scripts. Latest versions update (2025-10-31).
 --
 -- Usage: clickhouse-client -mn --ignore-error < ch2html.sql > `hostname`.8123.htm
 
 use system;
-select '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><link rel="stylesheet" href="ux3.css" />' ;
+select '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><link rel="stylesheet" href="style.css" />' ;
 select '<title>ClickHouse Statistics</title></head><body>' ;
 select '<h1>ClickHouse Database</h1>' ;
-select '<P><A NAME="top"></A>' ;
+select '<p><a id="top"></a>' ;
 select '<p>Table of contents:' ;
 select '<table><tr><td><ul>' ;
-select '<li><A HREF="#status">Summary Status</A></li>' ;
-select '<li><A HREF="#ver">Versions</A></li>' ;
-select '<li><A HREF="#obj">Schema/Object Matrix</A></li>' ;
-select '<li><A HREF="#usr">Users</A></li>' ;
-select '<li><A HREF="#tbs">Space Usage</A></li>' ;
-select '<li><A HREF="#part">Partitioning</A></li>' ;
-select '<li><A HREF="#comp">Compression</A></li>' ;
-select '<li><A HREF="#tune">Tuning Parameters</A> </li>' ;
-select '<li><A HREF="#eng">Engines</A></li>' ;
+select '<li><a href="#status">Summary Status</a></li>' ;
+select '<li><a href="#ver">Versions</a></li>' ;
+select '<li><a href="#obj">Schema/Object Matrix</a></li>' ;
+select '<li><a href="#usr">Users</a></li>' ;
+select '<li><a href="#tbs">Space Usage</a></li>' ;
+select '<li><a href="#part">Partitioning</a></li>' ;
+select '<li><a href="#comp">Compression</a></li>' ;
+select '<li><a href="#tune">Tuning Parameters</a> </li>' ;
+select '<li><a href="#eng">Engines</a></li>' ;
 select '</ul><td><ul>' ;
-select '<li><A HREF="#prc">Threads</A></li>' ;
-select '<li><A HREF="#stat">Performance Statistics</A></li>' ;
-select '<li><A HREF="#big">Biggest Objects</A></li>' ;
-select '<li><A HREF="#dict">Dictionary</A></li>' ;
-select '<li><A HREF="#repl">Replication</A>' ;
-select '  - <A HREF="#kfk">Kafka Consumers</A></li>' ;
-select '<li><A HREF="#det">Details:</A>' ;
-select '    <A HREF="#dbs">Databases</A>' ;
-select '    <A HREF="#dspace">Space</A>' ;
-select '    <A HREF="#ttl">TTL</A>' ;
-select '    <A HREF="#dpart">Partitions</A>' ;
-select '    <A HREF="#dpar">Parts</A>' ;
-select '    <A HREF="#dcomp">Compression</A>' ;
-select '    <A HREF="#dtype">Data types</A>' ;
-select '<li><A HREF="#par">Configuration Parameters</A></li>' ;
-select '<li><A HREF="#gstat">Global Status</A></li>' ;
-select '<li><A HREF="#os">Operating System info</A></li>' ;
+select '<li><a href="#prc">Threads</a></li>' ;
+select '<li><a href="#stat">Performance Statistics</a></li>' ;
+select '<li><a href="#big">Biggest Objects</a></li>' ;
+select '<li><a href="#dict">Dictionary</a></li>' ;
+select '<li><a href="#repl">Replication</a>' ;
+select '  - <a href="#kfk">Kafka Consumers</a></li>' ;
+select '<li><a href="#det">Details:</a>' ;
+select '    <a href="#dbs">Databases</a>' ;
+select '    <a href="#dspace">Space</a>' ;
+select '    <a href="#ttl">TTL</a>' ;
+select '    <a href="#dpart">Partitions</a>' ;
+select '    <a href="#dpar">Parts</a>' ;
+select '    <a href="#dcomp">Compression</a>' ;
+select '    <a href="#dtype">Data types</a>' ;
+select '<li><a href="#par">Configuration Parameters</a></li>' ;
+select '<li><a href="#gstat">Global Status</a></li>' ;
+select '<li><a href="#os">Operating System info</a></li>' ;
 select '</ul></table><p><hr>' ;
  
-select '<P>Statistics generated on: ', now();
-select 'using: <I><b>ch2html.sh</b> v.1.0.12b';
+select '<p>Statistics generated on: ', now();
+select 'using: <I><b>ch2html.sh</b> v.1.0.13';
 
-select '<hr><P><A NAME="status"></A>';
-select '<P><table border="2"><tr><td><b>Summary</b></td></tr>';
+select '<hr><p><A NAME="status"></a>';
+select '<p><table class="bordered"><tr><td><b>Summary</b></td></tr>';
 select '<tr><td><b>Item</b>', '<td><b>Value</b>';
 select '<tr><td>Version :', '<td>', version();
 select '<tr><td>Created :', '<td>', min(metadata_modification_time)
@@ -107,8 +108,8 @@ select '<tr><td>Merges/Day (Unc. bytes) :', '<td align=right>', formatReadableSi
 select '<tr><td>Hostname :', '<td>', hostName();
 select '</table><p><hr>' ;
 
-select '<P><A NAME="ver"></A>';
-select '<P><table border="2"><tr><td><b>Version check</b></td></tr>' ;
+select '<p><A NAME="ver"></a>';
+select '<p><table class="bordered"><tr><td><b>Version check</b></td></tr>' ;
 select '<tr><td><b>Version</b>',
  '<td><b> Current year release </b>',
  '<td><b> Recent releases </b>',
@@ -120,11 +121,12 @@ select '<td>', if(value>=25000000,'Yes','No')
 select '<td>', if(value>=24000000,'Yes','No')
   from system.metrics
  where metric='VersionInteger';
-select '<td>Latest Releases: 25.4.1.2934, 25.3.3.42-lts, 24.8.14.39-lts, 24.3.18.7-lts; 23.8.16.40−lts, 23.3.22.3−lts, 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
+select '<td>Latest Releases: 25.9.5.21, 25.8.11.66-lts, 25.3.8.23-lts; 24.8.14.39-lts, 24.3.18.7-lts, 23.8.16.40−lts, 23.3.22.3−lts, 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
+
 select '</table><p>' ;
 
-select '<P><A NAME="obj"></A>' ;
-select '<P><table border="2"><tr><td><b>Schema/Object Matrix</b></td></tr>' ;
+select '<p><A NAME="obj"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Schema/Object Matrix</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b> Tables</b>',
  '<td><b> Columns</b>',
@@ -190,8 +192,8 @@ from ( select 'T' otype, database sk, name
 select '</table><p>' ;
 
 
-select '<P><A NAME="eng"></A>' ;
-select '<P><table border="2"><tr><td><b>Schema/Engine Matrix</b></td></tr>' ;
+select '<p><A NAME="eng"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Schema/Engine Matrix</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b> MergeTree</b>',
  '<td><b> Aggr.MergeTree </b>',
@@ -250,10 +252,10 @@ select '<tr><td>TOTAL',
 select '</table><p><hr>' ;
 
 
-select '<P><A NAME="usr"></A>' ;
-select '<P><table border="2"><tr><td><b>Users</b></td></tr>' ;
+select '<p><A NAME="usr"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Users</b></td></tr>' ;
 
-select '<P><table border="2"><tr><td><b>User list</b></td></tr>' ;
+select '<p><table class="bordered"><tr><td><b>User list</b></td></tr>' ;
 select '<tr><td><b>Name',
  '<td><b>Auth_type</b>',
  '<td><b>Host</b>',
@@ -273,7 +275,7 @@ select '<tr><td>',name,
  from system.roles;
 select '</table><p>' ;
 
-select '<P><table border="2"><tr><td><b>User directories</b></td></tr>' ;
+select '<p><table class="bordered"><tr><td><b>User directories</b></td></tr>' ;
 select '<tr><td><b>Name',
  '<td><b>Type</b>',
  '<td><b>Parameters</b>',
@@ -286,7 +288,7 @@ select '<tr><td>',name,
  order by precedence;
 select '</table><p>' ;
 
-select '<P><pre><table border="2"><tr><td><b>Grants</b></td></tr>' ;
+select '<p><pre><table class="bordered"><tr><td><b>Grants</b></td></tr>' ;
 select '<tr><td><b>User/Role name',
  '<td><b>Access type</b>',
  '<td><b>Database</b>',
@@ -305,8 +307,8 @@ select '<tr><td>',coalesce(user_name,''), coalesce(role_name,''),
 select '</table></pre><p><br>' ;
 
 
-select '<P><A NAME="tbs"></A>' ;
-select '<P><table border="2"><tr><td><b>Space Usage</b></td></tr>' ;
+select '<p><A NAME="tbs"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Space Usage</b></td></tr>' ;
 select '<tr><td><b>Database',
  '<td><b>Row#</b>',
  '<td><b>Size</b>',
@@ -329,8 +331,8 @@ SELECT '<tr><td>TOTAL', '<td align=right>', sum(rows),
   FROM system.parts;
 select '</table><p>' ;
 
-select '<P><A NAME="disk"></A>' ;
-select '<P><table border="2"><tr><td><b>Disks</b></td></tr>' ;
+select '<p><A NAME="disk"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Disks</b></td></tr>' ;
 select '<tr><td><b>Name',
  '<td><b>Path</b>',
  '<td><b>Total HR</b>',
@@ -357,8 +359,8 @@ SELECT '<tr><td>TOTAL', '<td>',
   FROM system.disks;
 select '</table><p>' ;
 
-select '<P><A NAME="part"></A>' ;
-select '<P><table border="2"><tr><td><b>Partitioning</b></td></tr>';
+select '<p><A NAME="part"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Partitioning</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b># Tables</b>',
  '<td><b># Partitions</b>',
@@ -391,8 +393,8 @@ SELECT '<tr><td>TOTAL', '<td align="right">',count(distinct table),
   FROM system.parts;
 select '</table><p>';
 
-select '<P><A NAME="comp"></A>' ;
-select '<P><table border="2"><tr><td><b>Compression</b></td></tr>';
+select '<p><A NAME="comp"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Compression</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b># Table</b>',
  '<td><b># Column</b>',
@@ -419,8 +421,8 @@ SELECT '<tr><td>','TOTAL', '<td>',count(distinct table), '<td>',count(distinct c
  WHERE active;
 select '</table><p><hr>';
 
-select '<P><A NAME="tune"></A>' ;
-select '<P><table border="2"><tr><td><b>Top Tuning Parameters</b></td></tr>';
+select '<p><A NAME="tune"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Top Tuning Parameters</b></td></tr>';
 select '<tr><td><b>Parameter</b>', '<td><b>Value</b>';
 select '<tr><td>',name, '<td>',value
   from system.settings
@@ -431,8 +433,8 @@ select '<tr><td>',name, '<td>',value
  order by name;
 select '</table><p>' ;
 
-select '<P><A NAME="sga"></A>' ;
-select '<P><table border="2"><tr><td><b>Max Memory Usage </b><td>(last week)';
+select '<p><A NAME="sga"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Max Memory Usage </b><td>(last week)';
 select '<tr><td><b>User</b>','<td><b>Host</b>',
        '<td><b>Client</b>','<td><b>Start</b>','<td><b>Duration</b>','<td><b>Memory</b>','<td><b>Type</b>',
        '<td><b>Query</b>';
@@ -447,8 +449,8 @@ SELECT '<tr><td>',user, '<td>',client_hostname AS host, '<td>',client_name AS cl
  LIMIT 5 BY type;
 select '</table><p><hr>';
 
-select '<P><A NAME="prc"></A>' ;
-select '<P><table border="2"><tr><td><b>Sessions</b></td></tr>' ;
+select '<p><A NAME="prc"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Sessions</b></td></tr>' ;
 select '<tr><td><b>Type</b> <td><b>Count</b>';
 select '<tr><td>TCP (clickhouse-client and native connections)', '<td>', value
   from system.metrics
@@ -461,8 +463,8 @@ select '<tr><td>Interserver (replica and cluster)', '<td>', value
  where metric='InterserverConnection';
 select '</table><p>' ;
 
-select '<P><A NAME="run"></A>' ;
-select '<P><table border="2"><tr><td><b>Active Sessions</b></td></tr>' ;
+select '<p><A NAME="run"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Active Sessions</b></td></tr>' ;
 select '<tr><td><b>Id</b><td><b>User</b><td><b>Host</b>';
 select '<td><b>Elapsed</b><td><b>Command</b>';
 select '<tr><td>',query_id,
@@ -475,8 +477,8 @@ select '<tr><td>',query_id,
  order by query_id;
 select '</table><p>' ;
 
-select '<P><A NAME="stat"></A>' ;
-select '<a id="sqls"></a><P><table border="2"><tr><td><b>Latest SQL Statements</b></td>' ;
+select '<p><A NAME="stat"></a>' ;
+select '<a id="sqls"></a><p><table class="bordered"><tr><td><b>Latest SQL Statements</b></td>' ;
 select '<tr><td><b>User</b>','<td><b>Host</b>',
        '<td><b>Client</b>','<td><b>Start</b>','<td><b>Duration</b>','<td><b>Mem MB</b>',
        '<td><b>Rows</b>','<td><b>Result MB</b>','<td><b>Rows Examined</b>',
@@ -498,7 +500,7 @@ SELECT '<tr><td>',user, '<td>',client_hostname AS host, '<td>',client_name AS cl
 select '</table><p>';
 
 -- Requires CH 21.8
-select '<P><table border="2"><tr><td><b>Last day metrics</b></td>' ;
+select '<p><table class="bordered"><tr><td><b>Last day metrics</b></td>' ;
 select '<tr><td><b>Time</b>','<td><b>Query/sec</b>',
        '<td><b>Running Query</b>','<td><b>Running Merge</b>','<td><b>Selected bytes</b>',       
        '<td><b>Memory (tracked)</b>',
@@ -525,8 +527,8 @@ SELECT '<tr><td>',toStartOfInterval(event_time, INTERVAL 3600 SECOND) AS t,
 select '</table><p>';
 
 -- Load Average (15 minutes): Last day/hour, Last month/day
-select '<P><table><tr>' ;
-select '<td><P><table border="2"><tr><td><b>Last month LA<td>by day' ;
+select '<p><table><tr>' ;
+select '<td><p><table class="bordered"><tr><td><b>Last month LA<td>by day' ;
 select '<tr><td><b>Time</b>','<td><b>OS Load Average (15 minutes)</b>';
 SELECT '<tr><td>', toStartOfInterval(event_time, INTERVAL 3600*24 SECOND) AS t,
        '<td align="right">',round(avg(value),2) as load_avg
@@ -536,7 +538,7 @@ SELECT '<tr><td>', toStartOfInterval(event_time, INTERVAL 3600*24 SECOND) AS t,
  GROUP BY t
  ORDER BY t WITH FILL STEP 3600*24;
 select '</table>';
-select '<td><P><table border="2"><tr><td><b>Last day LA</b><td>by hour' ;
+select '<td><p><table class="bordered"><tr><td><b>Last day LA</b><td>by hour' ;
 select '<tr><td><b>Time</b>','<td><b>OS Load Average (15 minutes)</b>';
 SELECT '<tr><td>', toStartOfInterval(event_time, INTERVAL 3600 SECOND) AS t,
        '<td align="right">',round(avg(value),2) as load_avg
@@ -548,7 +550,7 @@ SELECT '<tr><td>', toStartOfInterval(event_time, INTERVAL 3600 SECOND) AS t,
 select '</table>';
 select '</table>';
 
-select '<table border="2"><tr><td><b>Connection High Water mark</b>' ;
+select '<table class="bordered"><tr><td><b>Connection High Water mark</b>' ;
 select '<tr><td><b>TCP</b>','<td><b>HTTP</b>','<td><b>Interserver</b>';
 select '<tr><td>',max(CurrentMetric_TCPConnection),
        '<td>',max(CurrentMetric_HTTPConnection), 
@@ -556,7 +558,7 @@ select '<tr><td>',max(CurrentMetric_TCPConnection),
   from system.metric_log;
 select '</table>';
 
-select '</table><p><a id="top_users"></a><p><table border="2"><tr><td><b>User activities (last week)</b>' ;
+select '</table><p><a id="top_users"></a><p><table class="bordered"><tr><td><b>User activities (last week)</b>' ;
 select '<tr><td><b>User</b>', '<td><b>#Query</b>', '<td><b>Total Duration</b>', '<td><b>Agv. Duration</b>', '<td><b>#Error</b>';
 select '<tr><td>',user, '<td align=right>',count(*), '<td align=right>',round(sum(query_duration_ms)/1000),
        '<td align=right>',round(sum(query_duration_ms)/1000/count(*),3),
@@ -572,7 +574,7 @@ select '<tr><td>TOTAL', '<td align=right>',count(*), '<td align=right>',round(su
  where  event_time > now() - interval 7 day;
 select '</table><p>';
 
-select '<P><table border="2"><tr><td><b>Active Merges</b></td></tr>';
+select '<p><table class="bordered"><tr><td><b>Active Merges</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Part</b>',
@@ -586,7 +588,7 @@ SELECT '<tr><td>',database, '<td>', table,'<td>',result_part_name,
   FROM system.merges;
 select '</table><p>' ;
 
-select '<P><div class="short"><a id="mutations"></a><table border="2"><tr><td><b>Mutations</b></td></tr>';
+select '<p><div class="short"><a id="mutations"></a><table class="bordered"><tr><td><b>Mutations</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Mutation ID</b>',
@@ -606,7 +608,7 @@ SELECT '<tr><td>',database, '<td>', table,'<td>',mutation_id,
 select '</table></div><p><hr>' ;
 
 
-select '<p><div class="short"><a id="sqlslow"></a><p><table border="2"><tr><td><b>Slowest Statements</b> <td>(last week)' ;
+select '<p><div class="short"><a id="sqlslow"></a><p><table class="bordered"><tr><td><b>Slowest Statements</b> <td>(last week)' ;
 select '<tr><td><b>User</b>','<td><b>Host</b>',
        '<td><b>Client</b>','<td><b>Start</b>','<td><b>Duration</b>','<td><b>Mem MB</b>',
        '<td><b>Rows</b>','<td><b>Result MB</b>','<td><b>Rows Examined</b>',
@@ -625,7 +627,7 @@ SELECT '<tr><td>',user, '<td>',client_hostname AS host, '<td>',client_name AS cl
  LIMIT 20;
 select '</table></div><p>';
 
-select '<p><div class="short"><a id="sqlerr"></a><p><table border="2"><tr><td><b>Recent Errors</b> <td> (last 24h)' ;
+select '<p><div class="short"><a id="sqlerr"></a><p><table class="bordered"><tr><td><b>Recent Errors</b> <td> (last 24h)' ;
 select '<tr><td><b>User</b>','<td><b>Host</b>',
        '<td><b>Client</b>','<td><b>Start</b>','<td><b>Duration</b>','<td><b>Mem MB</b>',
        '<td><b>Rows</b>','<td><b>Query</b>','<td><b>Exception</b>';
@@ -642,7 +644,7 @@ SELECT '<tr><td>',user, '<td>',client_hostname AS host, '<td>',client_name AS cl
  LIMIT 20;
 select '</table></div><p>';
 
-select '<p><div class="short"><a id="sqlslowu"></a><p><table border="2"><tr><td><b>Recent Slow Queries</b> <td>(24h,&nbsp;3&nbsp;by&nbsp;user)' ;
+select '<p><div class="short"><a id="sqlslowu"></a><p><table class="bordered"><tr><td><b>Recent Slow Queries</b> <td>(24h,&nbsp;3&nbsp;by&nbsp;user)' ;
 select '<tr><td><b>User</b>','<td><b>Host</b>',
        '<td><b>Client</b>','<td><b>Start</b>','<td><b>Duration</b>','<td><b>Mem MB</b>',
        '<td><b>Rows</b>','<td><b>Result MB</b>','<td><b>Rows Examined</b>',
@@ -665,7 +667,7 @@ select *
 order by user, sec DESC;
 select '</table></div><p>';
 
-select '<p><div class="short"><a id="sqlerr"></a><p><table border="2"><tr><td><b>Recent Errors</b> <td>(3 by&nbsp;user)' ;
+select '<p><div class="short"><a id="sqlerr"></a><p><table class="bordered"><tr><td><b>Recent Errors</b> <td>(3 by&nbsp;user)' ;
 select '<tr><td><b>User</b>','<td><b>Host</b>',
        '<td><b>Client</b>','<td><b>Start</b>','<td><b>Duration</b>','<td><b>Mem MB</b>',
        '<td><b>Rows</b>','<td><b>Query</b>','<td><b>Exception</b>';
@@ -683,8 +685,8 @@ select *
 order by user, started DESC;
 select '</table></div><p><hr>';
 
-select '<P><A NAME="big"></A>' ;
-select '<P><table border="2"><tr><td><b>Biggest Objects</b></td></tr>' ;
+select '<p><A NAME="big"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Biggest Objects</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Engine</b>',
@@ -703,8 +705,8 @@ SELECT '<tr><td>',database, '<td>', table, '<td>', any(engine),
  LIMIT 32;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="dict"></A>' ;
-select '<P><table border="2"><tr><td><b>Dictionaries</b></td></tr>' ;
+select '<p><A NAME="dict"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Dictionaries</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Name</b>',
  '<td><b>Status</b>',
@@ -728,8 +730,8 @@ SELECT '<tr><td>',database, '<td>', name, '<td>', status,
  ORDER BY last_successful_update_time desc;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="clu"></A>' ;
-select '<P><table border="2"><tr><td><b>Cluster configuration</b></td></tr>' ;
+select '<p><A NAME="clu"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Cluster configuration</b></td></tr>' ;
 select '<tr><td><b>Cluster</b>',
  '<td><b>Shard#</b>',
  '<td><b>Shard weight</b>',
@@ -751,8 +753,8 @@ SELECT '<tr><td>',cluster, '<td align=right>', shard_num, '<td>',shard_weight,
   FROM system.clusters;
 select '</table><p>' ;
 
-select '<P><A NAME="repl"></A>' ;
-select '<P><table border="2"><tr><td><b>Replication</b></td></tr>' ;
+select '<p><A NAME="repl"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Replication</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Engine</b>',
@@ -787,8 +789,8 @@ SELECT '<tr><td>',database, '<td>', table, '<td>', engine,
   FROM system.replicas;
 select '</table><p>' ;
 
-select '<P><A NAME="replq"></A>' ;
-select '<P><table border="2"><tr><td><b>Replication Queue</b></td></tr>' ;
+select '<p><A NAME="replq"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Replication Queue</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Replica Name</b>',
@@ -818,8 +820,8 @@ select '<tr><td>',database, '<td>',table, '<td>',replica_name,
  order by is_currently_executing desc, create_time;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="kfk"></A>' ;
-select '<P><table border="2"><tr><td><b>Kafka Objects</b></td></tr>' ;
+select '<p><A NAME="kfk"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Kafka Objects</b></td></tr>' ;
 select '<tr><td><b>Database</b>', '<td><b>#Objects</b>' ;
 select '<tr><td>', database,
 	'<td align=right>', count(*)
@@ -832,7 +834,7 @@ select '<tr><td>TOTAL', '<td align=right>', count(*)
  where engine='Kafka';
 select '</table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Kafka Consumers</b></td></tr>' ;
+select '<p><table class="bordered"><tr><td><b>Kafka Consumers</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Topic</b>',
@@ -852,7 +854,7 @@ SELECT '<tr><td>',database, '<td>',table, '<td>',replace(assignments.topic, ',',
  ORDER BY last_commit_time desc, last_poll_time desc, database, table;
 select '</table><p>' ;
 
-select '<pre><P><table border="2"><tr><td><b>Kafka Exceptions</b></td></tr>' ;
+select '<pre><p><table class="bordered"><tr><td><b>Kafka Exceptions</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Last Exception</b>',
@@ -867,8 +869,8 @@ SELECT '<tr><td>',database, '<td>',table,
  ORDER BY exceptions.time[-1] desc, database, table;
 select '</table><p></pre>' ;
 
-select '<P><A NAME="zoo"></A>' ;
-select '<P><table border="2"><tr><td><b>ZooKeeper</b></td></tr>' ;
+select '<p><A NAME="zoo"></a>' ;
+select '<p><table class="bordered"><tr><td><b>ZooKeeper</b></td></tr>' ;
 select '<tr><td><b>Name</b>', '<td><b>Value</b>', '<td><b>CTime</b>', '<td><b>Path</b>';
 SELECT '<tr><td>',name, '<td>',value, '<td>',ctime, '<td>',path
   FROM system.zookeeper
@@ -876,9 +878,9 @@ SELECT '<tr><td>',name, '<td>',value, '<td>',ctime, '<td>',path
  ORDER BY path;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="det"></A>' ;
-select '<P><A NAME="dbs"></A>' ;
-select '<P><div class="short"><table border="2"><tr><td><b>Database Details</b></td></tr>' ;
+select '<p><A NAME="det"></a>' ;
+select '<p><A NAME="dbs"></a>' ;
+select '<p><div class="short"><table class="bordered"><tr><td><b>Database Details</b></td></tr>' ;
 -- comment, engine_full available on new CH releases
 select '<tr><td><b>Database',
  '<td><b>Engine</b>',
@@ -892,8 +894,8 @@ SELECT '<tr><td>',name, '<td>',engine,
  ORDER BY name;
 select '</table></div><p>' ;
 
-select '<P><A NAME="dspace"></A>' ;
-select '<P><div class="short"><table border="2"><tr><td><b>Space Usage Details</b></td></tr>' ;
+select '<p><A NAME="dspace"></a>' ;
+select '<p><div class="short"><table class="bordered"><tr><td><b>Space Usage Details</b></td></tr>' ;
 select '<tr><td><b>Database',
  '<td><b>Table</b>',
  '<td><b>Row#</b>',
@@ -915,8 +917,8 @@ SELECT '<tr><td>',database, '<td>', table,'<td align=right>', sum(rows),
  ORDER BY database, table;
 select '</table></div><p>' ;
 
-select '<P><A NAME="ttl"></A>' ;
-select '<P><div class="short"><table border="2"><tr><td><b>TTL</b></td></tr>' ;
+select '<p><A NAME="ttl"></a>' ;
+select '<p><div class="short"><table class="bordered"><tr><td><b>TTL</b></td></tr>' ;
 select '<tr><td><b>Database',
  '<td><b>Table</b>',
  '<td><b>Size (H)</b>',
@@ -934,8 +936,8 @@ SELECT '<tr><td>',database, '<td>', name,
  ORDER BY database, name;
 select '</table></div><p>' ;
 
-select '<P><A NAME="dpart"></A>' ;
-select '<pre><div class="short"><table border="2"><tr><td><b>Partitions Details</b></td></tr>';
+select '<p><A NAME="dpart"></a>' ;
+select '<pre><div class="short"><table class="bordered"><tr><td><b>Partitions Details</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b># Partitions</b>',
@@ -955,8 +957,8 @@ SELECT '<tr><td>',database, '<td>',table,
  ORDER BY database, table;
 select '</table></div></pre><p>' ;
 
-select '<P><A NAME="dpar"></A>' ;
-select '<pre><div class="short"><table border="2"><tr><td><b>Parts Details</b></td></tr>';
+select '<p><A NAME="dpar"></a>' ;
+select '<pre><div class="short"><table class="bordered"><tr><td><b>Parts Details</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Partition</b>',
@@ -969,8 +971,8 @@ SELECT '<tr><td>',database, '<td>',table, '<td>',partition, '<td>',name,
  ORDER BY database, table, partition, name;
 select '</table></div></pre><p>' ;
 
-select '<P><A NAME="detpar"></A>' ;
-select '<pre><div class="short"><table border="2"><tr><td><b>Detached Parts</b></td></tr>';
+select '<p><A NAME="detpar"></a>' ;
+select '<pre><div class="short"><table class="bordered"><tr><td><b>Detached Parts</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Partition ID</b>',
@@ -989,8 +991,8 @@ SELECT '<tr><td>',database, '<td>',table, '<td>',partition_id, '<td>',name,
  ORDER BY database, table, partition_id, name;
 select '</table></div></pre><p>' ;
 
-select '<P><A NAME="dcomp"></A>' ;
-select '<pre><div class="short"><table border="2"><tr><td><b>Compression Details</b></td></tr>';
+select '<p><A NAME="dcomp"></a>' ;
+select '<pre><div class="short"><table class="bordered"><tr><td><b>Compression Details</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Column</b>',
@@ -1010,8 +1012,8 @@ SELECT '<tr><td>',database, '<td>',table, '<td>',column, '<td>',any(type),
 select '</table></div></pre><p>' ;
 
 
-select '<P><A NAME="deng"></A>' ;
-select '<P><div class="short"><table border="2"><tr><td><b>Engine Usage</b></td></tr>';
+select '<p><A NAME="deng"></a>' ;
+select '<p><div class="short"><table class="bordered"><tr><td><b>Engine Usage</b></td></tr>';
 select '<tr><td><b>Database</b>',
  '<td><b>Engine</b>',
  '<td><b># Tables</b>';
@@ -1023,9 +1025,9 @@ select '<tr><td>', database, '<td>', engine,
  order by database, engine;
 select '</table></div><p>' ;
 
-select '<P><A NAME="stor"></A>' ;
-select '<P><A NAME="dtype"></A>' ;
-select '<P><div class="short"><table border="2"><tr><td><b>Datatype Usage</b></td></tr>' ;
+select '<p><A NAME="stor"></a>' ;
+select '<p><A NAME="dtype"></a>' ;
+select '<p><div class="short"><table class="bordered"><tr><td><b>Datatype Usage</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Data Type</b>',
  '<td><b>Count#</b>';
@@ -1036,8 +1038,8 @@ select '<tr><td>', database, '<td>', type,  '<td>', count()
  order by database, type;
 select '</table></div><p>' ;
 
-select '<P><A NAME="tabs"></A>' ;
-select '<pre><div class="short"><table border="2"><tr><td><b>Table Design</b></td></tr>' ;
+select '<p><A NAME="tabs"></a>' ;
+select '<pre><div class="short"><table class="bordered"><tr><td><b>Table Design</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Table</b>',
  '<td><b>Column</b>',
@@ -1052,8 +1054,8 @@ select '<tr><td>', database, '<td>', table, '<td>', name, '<td>', type,
  order by database, table, is_in_primary_key desc, name;
 select '</table></div></pre><p>' ;
 
-select '<P><A NAME="err"></A>' ;
-select '<pre><div class="short"><table border="2"><tr><td><b>Errors</b></td></tr>' ;
+select '<p><A NAME="err"></a>' ;
+select '<pre><div class="short"><table class="bordered"><tr><td><b>Errors</b></td></tr>' ;
 select '<tr><td><b>Name</b>',
  '<td><b>Code</b>',
  '<td><b>Value</b>',
@@ -1066,8 +1068,8 @@ select '<tr><td>', name, '<td>', code, '<td>', value,
 select '</table></div></pre><p><hr>' ;
 
 
-select '<P><A NAME="par"></A>' ;
-select '<P><table border="2"><tr><td><b>ClickHouse Parameters</b></td></tr>';
+select '<p><A NAME="par"></a>' ;
+select '<p><table class="bordered"><tr><td><b>ClickHouse Parameters</b></td></tr>';
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>', '<td><b>Changed</b>' ;
 select '<tr><td>',name, '<td>',value, '<td>',changed
@@ -1075,29 +1077,29 @@ select '<tr><td>',name, '<td>',value, '<td>',changed
  order by changed desc, name;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="gstat"></A>' ;
-select '<P><table border="2"><tr><td><b>ClickHouse Metrics</b></td></tr>';
+select '<p><A NAME="gstat"></a>' ;
+select '<p><table class="bordered"><tr><td><b>ClickHouse Metrics</b></td></tr>';
 select '<tr><td><b>Statistic</b>', '<td><b>Value</b>', '<td><b>Description </b>' ;
 select '<tr><td>', metric, '<td align=right>', value,  '<td>', description
   from system.metrics
  order by metric;
 select '</table><p>' ;
 
-select '<P><pre><table border="2"><tr><td><b>ClickHouse Async. Metrics</b></td></tr>';
+select '<p><pre><table class="bordered"><tr><td><b>ClickHouse Async. Metrics</b></td></tr>';
 select '<tr><td><b>Statistic</b>', '<td><b>Value</b>' ;
 select '<tr><td>', metric, '<td align=right>', value
   from system.asynchronous_metrics
  order by metric;
 select '</table></pre><p>' ;
 
-select '<P><table border="2"><tr><td><b>ClickHouse Events</b></td></tr>';
+select '<p><table class="bordered"><tr><td><b>ClickHouse Events</b></td></tr>';
 select '<tr><td><b>Statistic</b>', '<td><b>Value</b>', '<td><b>Description </b>' ;
 select '<tr><td>', event, '<td align=right>', value,  '<td>', description
   from system.events
  order by event;
 select '</table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Part log</b></td></tr>';
+select '<p><table class="bordered"><tr><td><b>Part log</b></td></tr>';
 select '<tr><td><div class="short">' ;
 SELECT *
   FROM system.part_log
@@ -1105,5 +1107,7 @@ SELECT *
  limit 100;
 select '</div></table><p>' ;
 
-select '<hr><P>SQL Statistics generated on: ', now();
+select '<hr><p>SQL Statistics generated on: ', now();
+select '<div><a href="#top" class="back-to-top">⬆ Back to index</a></div>' ;
+select '<script src="util.js"></script>' ;
 
