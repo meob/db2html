@@ -1,7 +1,7 @@
 -- Program:	 my2html.80.sh
 -- Info:	 MySQL (8.0) DBA Database SQL report in HTML
 -- Date:         2018-04-19
--- Version:      1.0.23c: latest releases (2024-08-15) (a) many fixes (b) latest versions update (c) minor changes
+-- Version:      1.0.24: latest releases (2025-10-31), new CSS file
 -- Author:       Bartolomeo Bogliolo mail@meo.bogliolo.name
 -- License:      GPL
 --
@@ -17,47 +17,49 @@
 
 use information_schema;
 
-select '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><link rel="stylesheet" href="ux3.css" /> <title>';
+select '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><link rel="stylesheet" href="style.css" /> <title>';
 select @@hostname, ':', @@port, '-';
-select 'my2html MySQL (8.x) Statistics</title></head><body>';
+select ' MySQL Statistics - my2html</title></head><body>';
 
 select '<h1>MySQL Database</h1>';
 
-select '<P><A NAME="top"></A>' ;
+select '<p><a id="\1"></a>' ;
 select '<p>Table of contents:' ;
 select '<table><tr><td><ul>' ;
-select '<li><A HREF="#status">Summary Status</A></li>' ;
-select '<li><A HREF="#ver">Versions</A></li>' ;
-select '<li><A HREF="#obj">Schema/Object Matrix</A></li>' ;
-select '<li><A HREF="#tbs">Space Usage</A></li>' ;
-select '<li><A HREF="#part">Partitioning</A></li>' ;
-select '<li><A HREF="#usr">Users</A>' ;
-select '   (<A HREF="#usr_sec">Security</A>)' ;
-select '<li><A HREF="#tune">Tuning Parameters</A> </li>' ;
-select '<li><A HREF="#eng">Engines</A></li>' ;
-select '<li><A HREF="#prc">Threads</A></li>' ;
-select '<li><A HREF="#run">Running SQL</A> </li>' ;
-select '<li><A HREF="#lock">Table Locks</A> </li>' ;
+select '<li><a href="#status">Summary Status</a></li>' ;
+select '<li><a href="#ver">Versions</a></li>' ;
+select '<li><a href="#obj">Schema/Object Matrix</a></li>' ;
+select '<li><a href="#tbs">Space Usage</a></li>' ;
+select '<li><a href="#part">Partitioning</a></li>' ;
+select '<li><a href="#usr">Users</a>' ;
+select '   (<a href="#usr_sec">Security</a>)' ;
+select '<li><a href="#tune">Tuning Parameters</a> </li>' ;
+select '<li><a href="#eng">Engines</a></li>' ;
+select '<li><a href="#prc">Threads</a></li>' ;
+select '<li><a href="#run">Running SQL</a> </li>' ;
+select '<li><a href="#lock">Table Locks</a> </li>' ;
 select '</ul><td><ul>' ;
-select '<li><A HREF="#stat_innodb">InnoDB Statistics</A> </li>' ;
-select '<li><A HREF="#stat">Performance Statistics</A></li>' ;
-select '<li><A HREF="#big">Biggest Objects</A></li>' ;
-select '<li><A HREF="#hostc">Host Statistics</A></li>' ;
-select '<li><A HREF="#repl">Replication</A></li>' ;
-select '<li><A HREF="#stor">Stored Routines</A></li>' ;
-select '<li><A HREF="#sche">Scheduled Jobs</A> </li>' ;
-select '<li><A HREF="#nls">NLS</A> </li>' ;
-select '<li><A HREF="#par">Configuration Parameters</A></li>' ;
-select '<li><A HREF="#gstat">Global Status</A></li>' ;
+select '<li><a href="#stat_innodb">InnoDB Statistics</a> </li>' ;
+select '<li><a href="#stat">Performance Statistics</a></li>' ;
+select '<li><a href="#big">Biggest Objects</a></li>' ;
+select '<li><a href="#hostc">Host Statistics</a></li>' ;
+select '<li><a href="#repl">Replication</a></li>' ;
+select '<li><a href="#stor">Stored Routines</a></li>' ;
+select '<li><a href="#sche">Scheduled Jobs</a> </li>' ;
+select '<li><a href="#nls">NLS</a> </li>' ;
+select '<li><a href="#par">Configuration Parameters</a></li>' ;
+select '<li><a href="#gstat">Global Status</a></li>' ;
 select '</ul></table><p><hr>' ;
  
-select '<P>Statistics generated on: ', now();
+select '<p>Statistics generated on: ', now();
 select ' by: ', user(), 'as: ',current_user();
-select 'using: <I><b>my2html.80.sh</b> v.1.0.23d';
+select 'using: <I><b>my2html.80.sh</b> v.1.0.24';
 
-select '<HR><P><A NAME="status"></A>';
-select '<P><table border="2"><tr><td><b>Summary</b></td></tr>';
-select '<tr><td><b>Item</b>', '<td><b>Value</b>';
+select '<hr><p><a id="status"></a>';
+select '<p><table class="bordered sortable"><caption>Summary</caption><thead><tr>';
+select '<th scope="col" class="tac tooltip">Item<span class="tooltiptext">Item</span></th>';
+select '<th scope="col" class="tac tooltip">Value<span class="tooltiptext">Value</span></th>';
+select '</thead><tbody>';
 
 select '<tr><td>Version :', '<td>', version()
 union
@@ -69,12 +71,12 @@ from performance_schema.global_status
 where variable_name='UPTIME'
 union
 select '<tr><td>DB Size (MB):',
-	'<td align=right>',
+	'<td class="align-right">',
         format(sum(data_length+index_length)/(1024*1024),0)
 from tables
 union
 select '<tr><td>Buffers Size (MB):',
-	'<td align="right">',
+	'<td class="align-right">',
 	format(sum(variable_value+0)/(1024*1024),0)
 from performance_schema.global_variables
 where lower(variable_name) like '%buffer_size' or lower(variable_name) like '%buffer_pool_size'
@@ -84,33 +86,33 @@ from performance_schema.global_status
 where variable_name='LOG_BIN'
 union
 select '<tr><td>Defined Users :',
- '<td align="right">', format(count(*),0)
+ '<td class="align-right">', format(count(*),0)
 from mysql.user
 union
 select '<tr><td>Defined Schemata :',
- '<td align="right">', count(*)
+ '<td class="align-right">', count(*)
 from schemata
 where schema_name not in ('information_schema')
 union
 select '<tr><td>Defined Tables :',
-	'<td align=right>', format(count(*),0)
+	'<td class="align-right">', format(count(*),0)
 from tables
 union
-select '<tr><td>Sessions :', '<td align="right">', format(count(*),0)
+select '<tr><td>Sessions :', '<td class="align-right">', format(count(*),0)
   from processlist
  union
-select '<tr><td>Sessions (active) :', '<td align="right">', format(count(*),0)
+select '<tr><td>Sessions (active) :', '<td class="align-right">', format(count(*),0)
   from processlist
  where command <> 'Sleep'
 union
 select '<tr><td>Questions (#/sec.) :',
- '<td align=right>', format(g1.variable_value/g2.variable_value,5)
+ '<td class="align-right">', format(g1.variable_value/g2.variable_value,5)
   from performance_schema.global_status g1, performance_schema.global_status g2
  where g1.variable_name='QUESTIONS'
    and g2.variable_name='UPTIME'
 union
 select '<tr><td>BinLog Writes Day (MB) :',
- '<td align=right>', format((g1.variable_value*60*60*24)/(g2.variable_value*1024*1024),0)
+ '<td class="align-right">', format((g1.variable_value*60*60*24)/(g2.variable_value*1024*1024),0)
   from performance_schema.global_status g1, performance_schema.global_status g2
  where g1.variable_name='INNODB_OS_LOG_WRITTEN'
    and g2.variable_name='UPTIME'
@@ -122,53 +124,56 @@ union
 select '<tr><td>Port :', '<td>', variable_value
   from performance_schema.global_variables
  where variable_name ='port';
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="ver"></A>';
-select '<P><table border="2"><tr><td><b>Version check</b></td></tr>' ;
-select '<tr><td><b>Version</b>',
- '<td><b> Supported</b>',
- '<td><b> Last LTS release (N or N-1)</b>',
- '<td><b> Last update (N or N-1)</b>',
- '<td><b> Notes</b>';
+select '<p><a id="ver"></a>';
+select '<p><table class="bordered sortable"><caption>Version check</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Version<span class="tooltiptext">Version</span></th>';
+select '<th scope="col" class="tac tooltip">Supported<span class="tooltiptext">Supported</span></th>';
+select '<th scope="col" class="tac tooltip">Last LTS release (N or N-1)<span class="tooltiptext">Last LTS release (N or N-1)</span></th>';
+select '<th scope="col" class="tac tooltip">Last update (N or N-1)<span class="tooltiptext">Last update (N or N-1)</span></th>';
+select '<th scope="col" class="tac tooltip">Notes<span class="tooltiptext">Notes</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', version();
 select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0'), 'YES', 'NO') ;
 
 select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0'), 'YES', 'NO') ; -- last2 LTS releases
 
 select ' <td>', if(SUBSTRING_INDEX(version(),'-',1)
-    in ('8.4.2','8.0.39','5.7.44', 
-        '8.4.3','8.0.40','5.7.44'), 'YES', 'NO') ; -- last2 MySQL updates
+    in ('8.4.5','8.0.42','5.7.44', 
+        '8.4.6','8.0.43','5.7.44'), 'YES', 'NO') ; -- last2 MySQL updates
 
-select '<td>Latest Releases: 9.3.0, <b>8.4.5</b>, <b>8.0.42</b>; 9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
-select ' <br>Latest Releases (MariaDB): 11.7.2, 11.6.2, 11.5.2, <b>11.4.5</b>, 11.3.2, 11.2.6, ';
-select '     11.1.6, 11.0.6, <b>10.11.11</b>, 10.10.7, <b>10.6.21</b>, 10.5.28, 10.4.34;';
+select '<td>Latest Releases (MySQL): 9.5.0, <b>8.4.7</b>, <b>8.0.44</b>;';
+select '      9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
+select ' <br>Latest Releases (MariaDB): 12.0, <b>11.8.3</b>, 11.7.2, 11.6.2, 11.5.2, <b>11.4.8</b>, 11.3.2, 11.2.6, ';
+select '     11.1.6, 11.0.6, <b>10.11.14</b>, 10.10.7, <b>10.6.22</b>, 10.5.29, 10.4.34;';
 select '     10.9.8, 10.8.8, 10.7.8, 10.3.39, 10.2.44, 10.1.48, 10.0.38, 5.5.68';
 select ' <br>Latest Releases (Aurora): 3.08.1-8.0.39, <b>3.05.2-8.0.32</b> (def.), 2.12.4-5.7.44, 1.23.4-5.6 ';
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
  
-select '<P><A NAME="obj"></A>' ;
-select '<P><table border="2"><tr><td><b>Schema/Object Matrix</b></td></tr>' ;
-select '<tr><td><b>Database</b>',
- '<td><b> Tables</b>',
- '<td><b> Indexes</b>',
- '<td><b> Routines</b>',
- '<td><b> Triggers</b>',
- '<td><b> Views</b>',
- '<td><b> Primary Keys</b>',
- '<td><b> Foreign Keys</b>',
- '<td><b> All</b>' ;
+select '<p><a id="obj"></a>' ;
+select '<p><table class="bordered sortable"><caption>Schema/Object Matrix</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Database<span class="tooltiptext">Database</span></th>';
+select '<th scope="col" class="tac tooltip">Tables<span class="tooltiptext">Tables</span></th>';
+select '<th scope="col" class="tac tooltip">Indexes<span class="tooltiptext">Indexes</span></th>';
+select '<th scope="col" class="tac tooltip">Routines<span class="tooltiptext">Routines</span></th>';
+select '<th scope="col" class="tac tooltip">Triggers<span class="tooltiptext">Triggers</span></th>';
+select '<th scope="col" class="tac tooltip">Views<span class="tooltiptext">Views</span></th>';
+select '<th scope="col" class="tac tooltip">Primary Keys<span class="tooltiptext">Primary Keys</span></th>';
+select '<th scope="col" class="tac tooltip">Foreign Keys<span class="tooltiptext">Foreign Keys</span></th>';
+select '<th scope="col" class="tac tooltip">All<span class="tooltiptext">All</span></th>' ;
+select '</thead><tbody>';
 
 select '<tr><td>', sk,
-	'<td align=right>', sum(if(otype='T',1,0)),
-	'<td align=right>', sum(if(otype='I',1,0)),
-	'<td align=right>', sum(if(otype='R',1,0)),
-	'<td align=right>', sum(if(otype='E',1,0)),
-	'<td align=right>', sum(if(otype='V',1,0)),
-	'<td align=right>', sum(if(otype='P',1,0)),
-	'<td align=right>', sum(if(otype='F',1,0)),
-	'<td align=right>', count(*)
+	'<td class="align-right">', sum(if(otype='T',1,0)),
+	'<td class="align-right">', sum(if(otype='I',1,0)),
+	'<td class="align-right">', sum(if(otype='R',1,0)),
+	'<td class="align-right">', sum(if(otype='E',1,0)),
+	'<td class="align-right">', sum(if(otype='V',1,0)),
+	'<td class="align-right">', sum(if(otype='P',1,0)),
+	'<td class="align-right">', sum(if(otype='F',1,0)),
+	'<td class="align-right">', count(*)
 from ( select 'T' otype, table_schema sk, table_name name
   from tables
   union
@@ -194,31 +199,33 @@ from ( select 'T' otype, table_schema sk, table_name name
   where REFERENCED_TABLE_NAME is not null
      ) a
 group by sk with rollup;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Index Types</b></td></tr>' ;
-select  '<td><b> Type</b>',
- '<td><b> Uniqueness</b>',
- '<td><b> Avg keys</b>',
- '<td><b> Max Keys</b>',
- '<td><b> Count</b>',
- '<td><b> Columns</b>';
+select '<p><table class="bordered sortable"><caption>Index Types</caption><thead><tr>' ;
+select  '<th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th>';
+select '<th scope="col" class="tac tooltip">Uniqueness<span class="tooltiptext">Uniqueness</span></th>';
+select '<th scope="col" class="tac tooltip">Avg keys<span class="tooltiptext">Avg keys</span></th>';
+select '<th scope="col" class="tac tooltip">Max Keys<span class="tooltiptext">Max Keys</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th>';
+select '<th scope="col" class="tac tooltip">Columns<span class="tooltiptext">Columns</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', index_type,
         '<td>', if(non_unique, 'Not Unique', 'UNIQUE'),
-        '<td align=right>', avg(seq_in_index),
-        '<td align=right>', max(seq_in_index),
-        '<td align=right>', count(distinct table_schema,table_name, index_name),
-	'<td align=right>', count(*)
+        '<td class="align-right">', avg(seq_in_index),
+        '<td class="align-right">', max(seq_in_index),
+        '<td class="align-right">', count(distinct table_schema,table_name, index_name),
+	'<td class="align-right">', count(*)
   from statistics
  group by index_type, non_unique;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Unindexed Tables</b></td></tr>' ;
-select  '<td><b> Schema </b>',
- '<td><b> Table </b>',
- '<td><b> Engine </b>',
- '<td><b> Estimated rows </b>';
-SELECT '<tr><td>', t.TABLE_SCHEMA, '<td>', t.TABLE_NAME,'<td>', t.ENGINE,'<td align=right>', t.TABLE_ROWS
+select '<p><table class="bordered sortable"><caption>Unindexed Tables</caption><thead><tr>' ;
+select  '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Table<span class="tooltiptext">Table</span></th>';
+select '<th scope="col" class="tac tooltip">Engine<span class="tooltiptext">Engine</span></th>';
+select '<th scope="col" class="tac tooltip">Estimated rows<span class="tooltiptext">Estimated rows</span></th>';
+select '</thead><tbody>';
+SELECT '<tr><td>', t.TABLE_SCHEMA, '<td>', t.TABLE_NAME,'<td>', t.ENGINE,'<td class="align-right">', t.TABLE_ROWS
   FROM information_schema.TABLES t
  INNER JOIN information_schema.COLUMNS c ON t.TABLE_SCHEMA=c.TABLE_SCHEMA
             AND t.TABLE_NAME=c.TABLE_NAME
@@ -229,14 +236,15 @@ SELECT '<tr><td>', t.TABLE_SCHEMA, '<td>', t.TABLE_NAME,'<td>', t.ENGINE,'<td al
    HAVING sum(if(column_key in ('PRI','UNI'), 1,0))=0
  ORDER BY 2, 4
  limit 100;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Orphaned Tables</b></td></tr>' ;
-select  '<td><b> Table ID</b>',
- '<td><b> Name</b>',
- '<td><b> Flags</b>',
- -- '<td><b> File Format</b>',
- '<td><b> Row Format</b>';
+select '<p><table class="bordered sortable"><caption>Orphaned Tables</caption><thead><tr>' ;
+select  '<th scope="col" class="tac tooltip">Table ID<span class="tooltiptext">Table ID</span></th>';
+select '<th scope="col" class="tac tooltip">Name<span class="tooltiptext">Name</span></th>';
+select '<th scope="col" class="tac tooltip">Flags<span class="tooltiptext">Flags</span></th>';
+-- '<td><b> File Format</b>',
+select '<th scope="col" class="tac tooltip">Row Format<span class="tooltiptext">Row Format</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', TABLE_ID,
         '<td>', NAME,
         '<td>', FLAG,
@@ -245,103 +253,108 @@ select '<tr><td>', TABLE_ID,
   from INNODB_TABLES
  where name like "%/#%"
  limit 100;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="tbs"></A>' ;
-select '<P><table border="2"><tr><td><b>Space Usage</b></td></tr>' ;
-select '<tr><td><b>Database',
- '<td><b>Row#</b>',
- '<td><b>Data size</b>',
- '<td><b>Index size</b>',
- '<td><b>Free</b>',
- '<td><b>Total size</b>',
- '<td><b></b>',
- '<td><b>MyISAM</b>',
- '<td><b>InnoDB</b>',
- '<td><b>Memory</b>',
- '<td><b>Other Engines</b>',
- '<td><b>Created</b>';
+select '<p><a id="tbs"></a>' ;
+select '<p><table class="bordered sortable"><caption>Space Usage</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Database<span class="tooltiptext">Database</span></th>';
+select '<th scope="col" class="tac tooltip">Row#<span class="tooltiptext">Row#</span></th>';
+select '<th scope="col" class="tac tooltip">Data size<span class="tooltiptext">Data size</span></th>';
+select '<th scope="col" class="tac tooltip">Index size<span class="tooltiptext">Index size</span></th>';
+select '<th scope="col" class="tac tooltip">Free<span class="tooltiptext">Free</span></th>';
+select '<th scope="col" class="tac tooltip">Total size<span class="tooltiptext">Total size</span></th>';
+select '<th scope="col" class="tac tooltip"><span class="tooltiptext"></span></th>';
+select '<th scope="col" class="tac tooltip">MyISAM<span class="tooltiptext">MyISAM</span></th>';
+select '<th scope="col" class="tac tooltip">InnoDB<span class="tooltiptext">InnoDB</span></th>';
+select '<th scope="col" class="tac tooltip">Memory<span class="tooltiptext">Memory</span></th>';
+select '<th scope="col" class="tac tooltip">Other Engines<span class="tooltiptext">Other Engines</span></th>';
+select '<th scope="col" class="tac tooltip">Created<span class="tooltiptext">Created</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', table_schema,
-	'<td align=right>', format(sum(table_rows),0),
-	'<td align=right>', format(sum(data_length),0),
-	'<td align=right>', format(sum(index_length),0),
-	'<td align=right>', format(sum(data_free),0),
-	'<td align=right>', format(sum(data_length+index_length),0),
+	'<td class="align-right">', format(sum(table_rows),0),
+	'<td class="align-right">', format(sum(data_length),0),
+	'<td class="align-right">', format(sum(index_length),0),
+	'<td class="align-right">', format(sum(data_free),0),
+	'<td class="align-right">', format(sum(data_length+index_length),0),
 	'<td>',
-	'<td align=right>', format(sum((data_length+index_length)*
+	'<td class="align-right">', format(sum((data_length+index_length)*
 	if(engine='MyISAM',1,0)),0),
-	'<td align=right>', format(sum((data_length+index_length)*
+	'<td class="align-right">', format(sum((data_length+index_length)*
 	if(engine='InnoDB',1,0)),0),
-	'<td align=right>', format(sum((data_length+index_length)*
+	'<td class="align-right">', format(sum((data_length+index_length)*
 	if(engine='Memory',1,0)),0),
-	'<td align=right>', format(sum((data_length+index_length)*
+	'<td class="align-right">', format(sum((data_length+index_length)*
 	if(engine='Memory',0,if(engine='MyISAM',0,if(engine='InnoDB',0,1)))),0),
 	'<td>', date_format(min(create_time),'%Y-%m-%d')
 from tables
 group by table_schema with rollup;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><A NAME="tbs_os"></A>' ;
-select '<P><table border="2"><tr><td><b>InnoDB Tablespace OS Space Usage</b></td></tr>' ;
-select '<tr><td><b>Database',
- '<td><b>OS size</b>';
+select '<p><a id="tbs_os"></a>' ;
+select '<p><table class="bordered sortable"><caption>InnoDB Tablespace OS Space Usage</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Database<span class="tooltiptext">Database</span></th>';
+select '<th scope="col" class="tac tooltip">OS size<span class="tooltiptext">OS size</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',SUBSTRING_INDEX(name,'/',1),
-	'<td align=right>', format(sum(FILE_SIZE),0)
+	'<td class="align-right">', format(sum(FILE_SIZE),0)
   from information_schema.INNODB_TABLESPACES
  group by SUBSTRING_INDEX(name,'/',1) with rollup;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="part"></A>' ;
-select '<P><table border="2"><tr><td><b>Partitioning</b></td></tr>';
-select '<tr><td><b>Schema</b>',
- '<td><b>Partitioned Tables</b>',
- '<td><b>Partitions</b>' ;
-select '<tr><td>', table_schema, '<td align=right>',
-  count(distinct table_name), '<td align=right>',  count(*)
+select '<p><a id="part"></a>' ;
+select '<p><table class="bordered sortable"><caption>Partitioning</caption><thead><tr>';
+select '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Partitioned Tables<span class="tooltiptext">Partitioned Tables</span></th>';
+select '<th scope="col" class="tac tooltip">Partitions<span class="tooltiptext">Partitions</span></th>' ;
+select '</thead><tbody>';
+select '<tr><td>', table_schema, '<td class="align-right">',
+  count(distinct table_name), '<td class="align-right">',  count(*)
  from information_schema.partitions
  where partition_name is not null
  group by table_schema;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Partitioning details</b></td></tr>' ;
-select '<tr><td><b>Schema</b>',
- '<td><b>Table</b>',
- '<td><b>Method</b>',
- '<td><b>Partitions</b>',
- '<td><b>Subpartitions</b>',
- '<td><b>From partition</b>',
- '<td><b>To partition</b>',
- '<td><b>Est. Rows</b>',
- '<td><b>Size</b>';
+select '<p><table class="bordered sortable"><caption>Partitioning details</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Table<span class="tooltiptext">Table</span></th>';
+select '<th scope="col" class="tac tooltip">Method<span class="tooltiptext">Method</span></th>';
+select '<th scope="col" class="tac tooltip">Partitions<span class="tooltiptext">Partitions</span></th>';
+select '<th scope="col" class="tac tooltip">Subpartitions<span class="tooltiptext">Subpartitions</span></th>';
+select '<th scope="col" class="tac tooltip">From partition<span class="tooltiptext">From partition</span></th>';
+select '<th scope="col" class="tac tooltip">To partition<span class="tooltiptext">To partition</span></th>';
+select '<th scope="col" class="tac tooltip">Est. Rows<span class="tooltiptext">Est. Rows</span></th>';
+select '<th scope="col" class="tac tooltip">Size<span class="tooltiptext">Size</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', table_schema,
 	'<td>', table_name,
 	'<td>', partition_method, ifnull(subpartition_method,''),
-	'<td align=right>', count(distinct partition_name),
-	'<td align=right>', count(distinct subpartition_name),
+	'<td class="align-right">', count(distinct partition_name),
+	'<td class="align-right">', count(distinct subpartition_name),
 	'<td>', min(partition_name),
 	'<td>', max(partition_name),
-	'<td align=right>', sum(table_rows),
-	'<td align=right>', sum(coalesce(DATA_LENGTH,0)+coalesce(INDEX_LENGTH,0))
+	'<td class="align-right">', sum(table_rows),
+	'<td class="align-right">', sum(coalesce(DATA_LENGTH,0)+coalesce(INDEX_LENGTH,0))
   from partitions
  where partition_name is not null
  group by table_schema, table_name, subpartition_name, partition_method, subpartition_method
  order by table_schema, table_name, subpartition_name;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
 
-select '<P><A NAME="usr"></A>';
-select '<P><table border="2"><tr><td><b>Users</b></td></tr>' ;
-select '<tr><td><b>User</b>',
- '<td><b>Host</b>',
- '<td><b><code>SL IUD CDGRIA CCS CAE RR SSPFSR</code></b>',
- '<td><b>Select</b>',
- '<td><b>Execute</b>',
- '<td><b>Grant</b>',
- '<td><b>Empty Password</b>',
- '<td><b>Expired</b>',
- '<td><b>Password lifetime</b>',
- '<td><b>Locked</b>',
- '<td><b>Auth. Plugin</b>';
+select '<p><a id="usr"></a>';
+select '<p><table class="bordered sortable"><caption>Users</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">User<span class="tooltiptext">User</span></th>';
+select '<th scope="col" class="tac tooltip">Host<span class="tooltiptext">Host</span></th>';
+select '<th scope="col" class="tac tooltip"><code>SL IUD CDGRIA CCS CAE RR SSPFSR</code><span class="tooltiptext">SL IUD CDGRIA CCS CAE RR SSPFSR</span></th>';
+select '<th scope="col" class="tac tooltip">Select<span class="tooltiptext">Select</span></th>';
+select '<th scope="col" class="tac tooltip">Execute<span class="tooltiptext">Execute</span></th>';
+select '<th scope="col" class="tac tooltip">Grant<span class="tooltiptext">Grant</span></th>';
+select '<th scope="col" class="tac tooltip">Empty Password<span class="tooltiptext">Empty Password</span></th>';
+select '<th scope="col" class="tac tooltip">Expired<span class="tooltiptext">Expired</span></th>';
+select '<th scope="col" class="tac tooltip">Password lifetime<span class="tooltiptext">Password lifetime</span></th>';
+select '<th scope="col" class="tac tooltip">Locked<span class="tooltiptext">Locked</span></th>';
+select '<th scope="col" class="tac tooltip">Auth. Plugin<span class="tooltiptext">Auth. Plugin</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',user, 
 	'<td>', host,
 	'<td><code>', CONCAT(Select_priv, Lock_tables_priv,' ',
@@ -377,21 +390,23 @@ SELECT '<tr><td>',user,
 	'<td>', grant_priv
 FROM mysql.db d
 order by user,host;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><a id="usr_sec"></a><a name="role"></a>';
-select '<P><table border="2"><tr><td><b>Roles</b></td></tr>' ;
-select '<tr><td><b>Role Name</b><td><b>Active</b>' ;
+select '<p><a id="usr_sec"></a><a id="role"></a>';
+select '<p><table class="bordered sortable"><caption>Roles</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Role Name<span class="tooltiptext">Role Name</span></th><th scope="col" class="tac tooltip">Active<span class="tooltiptext">Active</span></th>' ;
+select '</thead><tbody>';
 SELECT DISTINCT '<tr><td>', User, '<td>', if(from_user is NULL, 0, 1) 
   FROM mysql.user LEFT JOIN mysql.role_edges ON from_user=user 
  WHERE account_locked='Y'
    AND password_expired='Y'
    AND authentication_string='';
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><a id="usr_sec"></a><a name="vrole"></a>';
-select '<P><table border="2"><tr><td><b>Virtual <i>Roles</i></b></td></tr>' ;
-select '<tr><td><b>Access Level</b><td><b>Users</b>' ;
+select '<p><a id="usr_sec"></a><a id="vrole"></a>';
+select '<p><table class="bordered sortable"><caption>Virtual <i>Roles</i></caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Access Level<span class="tooltiptext">Access Level</span></th><th scope="col" class="tac tooltip">Users<span class="tooltiptext">Users</span></th>' ;
+select '</thead><tbody>';
 select '<tr><td>Admin<td>' ;
 select distinct concat(user,'@',host) User
   from mysql.user
@@ -440,13 +455,14 @@ select distinct concat(user,'@',host)
 	  from mysql.user
 	 where select_priv='Y')
  order by 1;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Users with poor passwords</b></td></tr>' ;
-select '<tr><td><b>User</b>',
- '<td><b>Host</b>',
- '<td><b>Password</b>',
- '<td><b>Note</b>';
+select '<p><table class="bordered sortable"><caption>Users with poor passwords</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">User<span class="tooltiptext">User</span></th>';
+select '<th scope="col" class="tac tooltip">Host<span class="tooltiptext">Host</span></th>';
+select '<th scope="col" class="tac tooltip">Password<span class="tooltiptext">Password</span></th>';
+select '<th scope="col" class="tac tooltip">Note<span class="tooltiptext">Note</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',user, 
 	'<td>', host, 
 	'<td>',
@@ -505,44 +521,47 @@ SELECT '<tr><td>',host,
 	'<td>Suspected backdoor user'
 FROM mysql.user
 WHERE user in ('hanako', 'kisadminnew1', '401hk$', 'guest', 'Huazhongdiguo110');
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><a id="secsql"></A>' ;
-select '<P><table border="2"><tr><td><b>Suspect SQL Statements</b></td></tr>' ;
-select '<tr><td><b>Schema</b>',
- '<td><b>Statement</b>',
- '<td><b>Count</b>';
+select '<p><a id="secsql"></a>' ;
+select '<p><table class="bordered sortable"><caption>Suspect SQL Statements</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Statement<span class="tooltiptext">Statement</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',SCHEMA_NAME,'<td>', DIGEST_TEXT, '<td>', COUNT_STAR  -- FIRST_SEEN, LAST_SEEN 
   from performance_schema.events_statements_summary_by_digest
  where DIGEST_TEXT like '% OR %? = ?%'
     or DIGEST_TEXT like '%mysql.user%'
  limit 20;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><a id="sectab"></A>' ;
-select '<P><table border="2"><tr><td><b>Spammable tables</b></td></tr>' ;
-select '<tr><td><b>Database</b>',
- '<td><b>Object</b>',
- '<td><b>Type</b>',
- '<td><b>Rows</b>',
- '<td><b>MBytes</b>' ;
+select '<p><a id="sectab"></a>' ;
+select '<p><table class="bordered sortable"><caption>Spammable tables</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Database<span class="tooltiptext">Database</span></th>';
+select '<th scope="col" class="tac tooltip">Object<span class="tooltiptext">Object</span></th>';
+select '<th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th>';
+select '<th scope="col" class="tac tooltip">Rows<span class="tooltiptext">Rows</span></th>';
+select '<th scope="col" class="tac tooltip">MBytes<span class="tooltiptext">MBytes</span></th>' ;
+select '</thead><tbody>';
 select '<tr><td>', table_schema,
         '<td>', table_name,
         '<td>T',
-        '<td align=right>', format(table_rows,0),
-        '<td align=right>', format((data_length+index_length)/(1024*1024),0)
+        '<td class="align-right">', format(table_rows,0),
+        '<td class="align-right">', format((data_length+index_length)/(1024*1024),0)
 from tables
 where (table_name like '%comments'
        or table_name like '%redirection')
 and table_rows > 1000
 order by table_rows desc;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="sga"></A>' ;
-select '<P><table border="2"><tr><td><b>MySQL Memory Usage</b>';
-select '<tr><td><b>Type</b>',
- '<td><b>Value (MB)</b>' ;
-select '<tr><td>Global Caches <td align=right>', format(sum(variable_value)/(1024*1024),0)
+select '<p><a id="sga"></a>' ;
+select '<p><table class="bordered sortable"><caption>MySQL Memory Usage</caption><thead><tr>';
+select '<th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th>';
+select '<th scope="col" class="tac tooltip">Value (MB)<span class="tooltiptext">Value (MB)</span></th>' ;
+select '</thead><tbody>';
+select '<tr><td>Global Caches <td class="align-right">', format(sum(variable_value)/(1024*1024),0)
 from performance_schema.global_variables
 where lower(variable_name) in (
 'innodb_buffer_pool_size',
@@ -553,9 +572,9 @@ where lower(variable_name) in (
 'key_buffer_size',
 'table_open_cache',
 'tmp_table_size');
-select '<tr><td>Session''s Memory<td align=right>', sum(total_memory_allocated)  
+select '<tr><td>Session\'\'s Memory<td class="align-right">', sum(total_memory_allocated)  
   from sys.user_summary;
-select '<tr><td>Estimated Client Alloc. (max conn:', max(g2.variable_value),')<td align=right>',
+select '<tr><td>Estimated Client Alloc. (max conn:', max(g2.variable_value),')<td class="align-right">',
        format(sum(g1.variable_value*g2.variable_value)/(1024*1024),0)
 from performance_schema.global_variables g1, performance_schema.global_status g2
 where lower(g1.variable_name) in (
@@ -567,39 +586,47 @@ where lower(g1.variable_name) in (
 'join_buffer_size',
 'thread_stack')
 and lower(g2.variable_name)='max_used_connections';
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Performance Schema Memory Footprint</b>';
-select '<tr><td><b>Total Allocated</b>';
+select '<p><table class="bordered sortable"><caption>Performance Schema Memory Footprint</caption><thead><tr>';
+select '<th scope="col" class="tac tooltip">Total Allocated<span class="tooltiptext">Total Allocated</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>', total_allocated FROM sys.memory_global_total;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>PS Memory Details</b>';
-select '<tr><td><b>Event</b><td><b>#</b><td><b>#Free</b><td><b>Total Alloc.</b>';
-select ' <td><b>Total Free</b><td><b>Current</b><td><b>Max</b>';
+select '<p><table class="bordered sortable"><caption>PS Memory Details</caption><thead><tr>';
+select '<th scope="col" class="tac tooltip">Event<span class="tooltiptext">Event</span></th>';
+select '<th scope="col" class="tac tooltip">#<span class="tooltiptext">#</span></th>';
+select '<th scope="col" class="tac tooltip">#Free<span class="tooltiptext">#Free</span></th>';
+select '<th scope="col" class="tac tooltip">Total Alloc.<span class="tooltiptext">Total Alloc.</span></th>';
+select '<th scope="col" class="tac tooltip">Total Free<span class="tooltiptext">Total Free</span></th>';
+select '<th scope="col" class="tac tooltip">Current<span class="tooltiptext">Current</span></th>';
+select '<th scope="col" class="tac tooltip">Max<span class="tooltiptext">Max</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',EVENT_NAME, '<td>',COUNT_ALLOC, '<td>',COUNT_FREE, '<td>',sys.format_bytes(SUM_NUMBER_OF_BYTES_ALLOC),
        '<td>',sys.format_bytes(SUM_NUMBER_OF_BYTES_FREE), '<td>',sys.format_bytes(CURRENT_NUMBER_OF_BYTES_USED),
        '<td>',sys.format_bytes(HIGH_NUMBER_OF_BYTES_USED)
   FROM performance_schema.memory_summary_global_by_event_name
  WHERE CURRENT_NUMBER_OF_BYTES_USED > 5000000
  ORDER BY CURRENT_NUMBER_OF_BYTES_USED DESC;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<hr><P><A NAME="tune"></A>' ;
-select '<P><table border="2"><tr><td><b>Tuning Parameters (most used ones)</b></td></tr>';
-select '<tr><td><b>Parameter</b>',
- '<td><b>Value</b><td><b>Type</b>' ;
-select '<tr><td>', variable_name, '<td align=right>', variable_value, '<td>Cache'
+select '<hr><p><a id="tune"></a>' ;
+select '<p><table class="bordered sortable"><caption>Tuning Parameters (most used ones)</caption><thead><tr>';
+select '<th scope="col" class="tac tooltip">Parameter<span class="tooltiptext">Parameter</span></th>';
+select '<th scope="col" class="tac tooltip">Value<span class="tooltiptext">Value</span></th><th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th>' ;
+select '</thead><tbody>';
+select '<tr><td>', variable_name, '<td class="align-right">', variable_value, '<td>Cache'
 from performance_schema.global_variables
 where lower(variable_name) in ('query_cache_type')
 union
-select '<tr><td>', variable_name, '<td align=right>', variable_value, '<td>Tuning and timeout'
+select '<tr><td>', variable_name, '<td class="align-right">', variable_value, '<td>Tuning and timeout'
 from performance_schema.global_variables
 where lower(variable_name) in (
 'log_bin',
 'slow_query_log')
 union
-select '<tr><td>', variable_name, '<td align=right>', format(variable_value,0), '<td>Cache'
+select '<tr><td>', variable_name, '<td class="align-right">', format(variable_value,0), '<td>Cache'
 from performance_schema.global_variables
 where lower(variable_name) in (
 'innodb_buffer_pool_size',
@@ -613,7 +640,7 @@ where lower(variable_name) in (
 'max_heap_table_size',
 'foo')
 union
-select '<tr><td>', variable_name, '<td align=right>', format(variable_value,0), '<td>Tuning and timeout'
+select '<tr><td>', variable_name, '<td class="align-right">', format(variable_value,0), '<td>Tuning and timeout'
 from performance_schema.global_variables
 where lower(variable_name) in (
 'innodb_flush_log_at_trx_commit',
@@ -627,7 +654,7 @@ where lower(variable_name) in (
 'sync_binlog',
 'foo')
 union
-select '<tr><td>', variable_name, '<td align=right>', format(variable_value,0), '<td>Client Cache'
+select '<tr><td>', variable_name, '<td class="align-right">', format(variable_value,0), '<td>Client Cache'
 from performance_schema.global_variables
 where lower(variable_name) in (
 'binlog_cache_size',
@@ -640,23 +667,25 @@ where lower(variable_name) in (
 'thread_stack',
 'foo')
 order by 5, variable_name;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="eng"></A>' ;
-select '<P><table border="2"><tr><td><b>Engines</b></td></tr>';
-select '<tr><td><b>Engine</b>',
- '<td><b> Support</b>',
- '<td><b> Comment</b>';
+select '<p><a id="eng"></a>' ;
+select '<p><table class="bordered sortable"><caption>Engines</caption><thead><tr>';
+select '<th scope="col" class="tac tooltip">Engine<span class="tooltiptext">Engine</span></th>';
+select '<th scope="col" class="tac tooltip">Support<span class="tooltiptext">Support</span></th>';
+select '<th scope="col" class="tac tooltip">Comment<span class="tooltiptext">Comment</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', engine,
 	'<td>', support,
 	'<td>', comment
 from engines
 order by support;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="prc"></A>' ;
-select '<P><table><tr><td><table border="2"><tr><td><b>Per-User Processes</b></td></tr>' ;
-select '<tr><td><b>User</b><td><b>Count</b>';
+select '<p><a id="prc"></a>' ;
+select '<p><table><tr><td><table class="bordered sortable"><caption>Per-User Processes</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">User<span class="tooltiptext">User</span></th><th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', user,
 	'<td>', count(*)
 from processlist
@@ -666,9 +695,10 @@ select '<tr><td>TOTAL (', count(distinct user),
 	' distinct users)',
 	'<td>', count(*)
 from processlist;
-select '</table>' ;
-select '<td><table border="2"><tr><td><b>Per-User/Database Processes</b></td></tr>' ;
-select '<tr><td><b>User</b><td><b>Database</b><td><b>Count</b>';
+select '</tbody></table>' ;
+select '<td><table class="bordered sortable"><caption>Per-User/Database Processes</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">User<span class="tooltiptext">User</span></th><th scope="col" class="tac tooltip">Database<span class="tooltiptext">Database</span></th><th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', user,
 	'<td>', db,
 	'<td>', count(*)
@@ -680,9 +710,10 @@ select '<tr><td>TOTAL (', count(distinct user,coalesce(db,'')),
 	' distinct users)<td>',
 	'<td>', count(*)
 from processlist;
-select '</table>' ;
-select '<td><table border="2"><tr><td><b>Per-Host Processes</b></td></tr>' ;
-select '<tr><td><b>Host</b><td><b>Count</b>';
+select '</tbody></table>' ;
+select '<td><table class="bordered sortable"><caption>Per-Host Processes</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Host<span class="tooltiptext">Host</span></th><th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', SUBSTRING_INDEX(host,':',1),
 	'<td>', count(*)
 from processlist
@@ -692,11 +723,12 @@ select '<tr><td>TOTAL (', count(distinct SUBSTRING_INDEX(host,':',1)),
 	' distinct hosts)',
 	'<td>', count(*)
 from processlist;
-select '</table></table>' ;
+select '</tbody></table></table>' ;
 
-select '<P><table border="2"><tr><td><b>Processes</b></td></tr>' ;
-select '<tr><td><b>Id</b><td><b>User</b><td><b>Host</b>';
-select '<td><b>DB</b><td><b>Command</b><td><b>Time</b><td><b>State</b>';
+select '<p><table class="bordered sortable"><caption>Processes</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Id<span class="tooltiptext">Id</span></th><th scope="col" class="tac tooltip">User<span class="tooltiptext">User</span></th><th scope="col" class="tac tooltip">Host<span class="tooltiptext">Host</span></th>';
+select '<th scope="col" class="tac tooltip">DB<span class="tooltiptext">DB</span></th><th scope="col" class="tac tooltip">Command<span class="tooltiptext">Command</span></th><th scope="col" class="tac tooltip">Time<span class="tooltiptext">Time</span></th><th scope="col" class="tac tooltip">State<span class="tooltiptext">State</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',id,
 	'<td>', user,
 	'<td>', host,
@@ -706,12 +738,13 @@ select '<tr><td>',id,
 	'<td>', state
 from processlist
 order by id;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><A NAME="run"></A>' ;
-select '<P><table border="2"><tr><td><b>Running SQL</b></td></tr>' ;
-select '<tr><td><b>Id</b><td><b>User</b><td><b>Time</b>';
-select '<td><b>State</b><td><b>Info</b>';
+select '<p><a id="run"></a>' ;
+select '<p><table class="bordered sortable"><caption>Running SQL</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Id<span class="tooltiptext">Id</span></th><th scope="col" class="tac tooltip">User<span class="tooltiptext">User</span></th><th scope="col" class="tac tooltip">Time<span class="tooltiptext">Time</span></th>';
+select '<th scope="col" class="tac tooltip">State<span class="tooltiptext">State</span></th><th scope="col" class="tac tooltip">Info<span class="tooltiptext">Info</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',id,
 	'<td>', user,
 	'<td>', time,
@@ -720,30 +753,33 @@ select '<tr><td>',id,
 from processlist
 where command <> 'Sleep'
 order by id;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="stat_innodb"></A>' ;
-select '<P><table border="2"><tr><td><b>InnoDB Statistics</b></table>' ;
+select '<p><a id="stat_innodb"></a>' ;
+select '<p><h2>InnoDB Statistics</h2>' ;
 
-select '<P><table border="2"><tr><td><b>Transactions</b></td></tr>' ;
-select '<tr><td><b>Id</b><td><b>TRX Id</b><td><b>State</b><td><b>Started</b>';
-select  '<td><b>Weight</b><td><b>Req. lock</b><td><b>Query</b><td><b>Operation</b><td><b>Isolation</b>';
+select '<p><table class="bordered sortable"><caption>Transactions</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Id<span class="tooltiptext">Id</span></th><th scope="col" class="tac tooltip">TRX Id<span class="tooltiptext">TRX Id</span></th><th scope="col" class="tac tooltip">State<span class="tooltiptext">State</span></th><th scope="col" class="tac tooltip">Started<span class="tooltiptext">Started</span></th>';
+select  '<th scope="col" class="tac tooltip">Weight<span class="tooltiptext">Weight</span></th><th scope="col" class="tac tooltip">Req. lock<span class="tooltiptext">Req. lock</span></th><th scope="col" class="tac tooltip">Query<span class="tooltiptext">Query</span></th><th scope="col" class="tac tooltip">Operation<span class="tooltiptext">Operation</span></th><th scope="col" class="tac tooltip">Isolation<span class="tooltiptext">Isolation</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',trx_mysql_thread_id, '<td>',trx_id, '<td>',trx_state, '<td>',trx_started, '<td>',trx_weight,
        '<td>',trx_requested_lock_id, '<td>',trx_query, '<td>',trx_operation_state, '<td>',trx_isolation_level
  from INFORMATION_SCHEMA.innodb_trx;
-select '</table>' ;
+select '</tbody></table>' ;
 
-select '<P><A NAME="innodb_lock"></A>' ;
-select '<P><table border="2"><tr><td><b>Waiting Locks</b> (performance_schema)</td></tr>' ;
-select '<tr><td><b>TRX Id</b><td><b>Lock Id</b><td><b>Blocking TRX</b><td><b>Blocking Lock</b>';
+select '<p><a id="innodb_lock"></a>' ;
+select '<p><table class="bordered sortable"><caption>Waiting Locks (performance_schema)</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">TRX Id<span class="tooltiptext">TRX Id</span></th><th scope="col" class="tac tooltip">Lock Id<span class="tooltiptext">Lock Id</span></th><th scope="col" class="tac tooltip">Blocking TRX<span class="tooltiptext">Blocking TRX</span></th><th scope="col" class="tac tooltip">Blocking Lock<span class="tooltiptext">Blocking Lock</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',REQUESTING_ENGINE_TRANSACTION_ID, '<td>',REQUESTING_ENGINE_LOCK_ID,
        '<td>', BLOCKING_ENGINE_TRANSACTION_ID, '<td>', BLOCKING_ENGINE_LOCK_ID
   from performance_schema.data_lock_waits;
-select '</table>' ;
-select '<P><A NAME="innodb_lock2"></A>' ;
-select '<P><table border="2"><tr><td><b>Waiting Locks</b> (sys)</td></tr>' ;
-select '<tr><td><b>TRX Id</b><td><b>PID</b><td><b>Query</b>';
-select '    <td><b>Blocking TRX Id</b><td><b>PID</b><td><b>Query</b>';
+select '</tbody></table>' ;
+select '<p><a id="innodb_lock2"></a>' ;
+select '<p><table class="bordered sortable"><caption>Waiting Locks (sys)</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">TRX Id<span class="tooltiptext">TRX Id</span></th><th scope="col" class="tac tooltip">PID<span class="tooltiptext">PID</span></th><th scope="col" class="tac tooltip">Query<span class="tooltiptext">Query</span></th>';
+select '    <th scope="col" class="tac tooltip">Blocking TRX Id<span class="tooltiptext">Blocking TRX Id</span></th><th scope="col" class="tac tooltip">PID<span class="tooltiptext">PID</span></th><th scope="col" class="tac tooltip">Query<span class="tooltiptext">Query</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',waiting_trx_id,
   '<td>', waiting_pid,
   '<td>', waiting_query,
@@ -751,364 +787,508 @@ SELECT '<tr><td>',waiting_trx_id,
   '<td>', blocking_pid,
   '<td>', blocking_query
 FROM sys.innodb_lock_waits;
-select '</table>' ;
+select '</tbody></table>' ;
 
-select '<P><table border="2"><tr><td><b>Locks</b></td></tr>' ;
-select '<tr><td><b>TRX Id</b><td><b>Lock Id</b><td><b>Mode</b><td><b>Type</b>';
-select '<td><b>Status</b><td><b>Data</b>';
+select '<p><table class="bordered sortable"><caption>Locks</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">TRX Id<span class="tooltiptext">TRX Id</span></th><th scope="col" class="tac tooltip">Lock Id<span class="tooltiptext">Lock Id</span></th><th scope="col" class="tac tooltip">Mode<span class="tooltiptext">Mode</span></th><th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th>';
+select '<th scope="col" class="tac tooltip">Status<span class="tooltiptext">Status</span></th><th scope="col" class="tac tooltip">Data<span class="tooltiptext">Data</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',engine_transaction_id, '<td>',engine_lock_id, '<td>',lock_mode, '<td>',lock_type, '<td>',lock_status, '<td>',lock_data
   from performance_schema.data_locks;
-select '</table>' ;
+select '</tbody></table>' ;
 
-select '<P><table border="2"><tr><td><b>Pool Statistics</b></td></tr>' ;
-select '<tr><td><b>Pool Id</b><td><b>Size</b><td><b>Free buffers</b><td><b>Database pages</b>';
-select '<td><b>Old pages</b><td><b>Modified pages</b><td><b>Pages read</b><td><b>Pages created</b>';
-select '<td><b>Pages written</b><td><b>Hit rate</b>';
+select '<p><table class="bordered sortable"><caption>Pool Statistics</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Pool Id<span class="tooltiptext">Pool Id</span></th><th scope="col" class="tac tooltip">Size<span class="tooltiptext">Size</span></th><th scope="col" class="tac tooltip">Free buffers<span class="tooltiptext">Free buffers</span></th><th scope="col" class="tac tooltip">Database pages<span class="tooltiptext">Database pages</span></th>';
+select '<th scope="col" class="tac tooltip">Old pages<span class="tooltiptext">Old pages</span></th><th scope="col" class="tac tooltip">Modified pages<span class="tooltiptext">Modified pages</span></th><th scope="col" class="tac tooltip">Pages read<span class="tooltiptext">Pages read</span></th><th scope="col" class="tac tooltip">Pages created<span class="tooltiptext">Pages created</span></th>';
+select '<th scope="col" class="tac tooltip">Pages written<span class="tooltiptext">Pages written</span></th><th scope="col" class="tac tooltip">Hit rate<span class="tooltiptext">Hit rate</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',POOL_ID, '<td>',POOL_SIZE, '<td>',FREE_BUFFERS, '<td>',DATABASE_PAGES,
        '<td>',OLD_DATABASE_PAGES, '<td>',MODIFIED_DATABASE_PAGES,
        '<td>',NUMBER_PAGES_READ, '<td>',NUMBER_PAGES_CREATED, '<td>',NUMBER_PAGES_WRITTEN, '<td>',HIT_RATE
  from INFORMATION_SCHEMA.INNODB_BUFFER_POOL_STATS;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Tablespaces</b></td></tr>' ;
-select '<tr><td><b>Tablespace Type</b><td><b>Row Format</b><td><b>Tables</b>',
-       '<td><b>Columns</b>';
+select '<p><table class="bordered sortable"><caption>Tablespaces</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Tablespace Type<span class="tooltiptext">Tablespace Type</span></th><th scope="col" class="tac tooltip">Row Format<span class="tooltiptext">Row Format</span></th><th scope="col" class="tac tooltip">Tables<span class="tooltiptext">Tables</span></th>',
+       '<th scope="col" class="tac tooltip">Columns<span class="tooltiptext">Columns</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',if(SPACE=0,'System','FilePerTable') TBS,'<td>', ROW_FORMAT,'<td>',
        count(*) TABS,'<td>', sum(N_COLS-3) COLS
   FROM INFORMATION_SCHEMA.INNODB_TABLES
  group by ROW_FORMAT, if(SPACE=0,'System','FilePerTable');
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="stat"></A>' ;
-select '<P><table border="2"><tr><td><b>Performance Statistics Summary</b></td></tr>' ;
-select '<tr><td><b>Statistic</b><td><b>Value</b><td><b>Suggested value</b><td><b>Potential Action</b>';
-select '<tr><!01><td>', variable_name, ' (days)<td align=right>', round(variable_value/(3600*24),1), '', ''
+select '<p><a id="stat"></a>' ;
+
+select '<p><table class="bordered sortable"><caption>Performance Statistics Summary</caption><thead><tr>' ;
+
+select '<th scope="col" class="tac tooltip">Statistic<span class="tooltiptext">Statistic</span></th><th scope="col" class="tac tooltip">Value<span class="tooltiptext">Value</span></th><th scope="col" class="tac tooltip">Suggested value<span class="tooltiptext">Suggested value</span></th><th scope="col" class="tac tooltip">Potential Action<span class="tooltiptext">Potential Action</span></th>';
+
+select '</thead><tbody>';
+
+select '<tr><!01><td>', variable_name, ' (days)<td class="align-right">', round(variable_value/(3600*24),1), '', ''
+
 from performance_schema.global_status
+
 where variable_name='UPTIME'
+
 union
+
 select '<tr><!15><td>', 'Buffer Cache: MyISAM Read Hit Ratio',
- '<td align=right>', format(100-t1.variable_value*100/t2.variable_value,2), '<td> >95', '<td>Increase KEY_BUFFER_SIZE'
+
+ '<td class="align-right">', format(100-t1.variable_value*100/t2.variable_value,2), '<td> >95', '<td>Increase KEY_BUFFER_SIZE'
+
 from performance_schema.global_status t1, performance_schema.global_status t2
+
 where t1.variable_name='KEY_READS' and t2.variable_name='KEY_READ_REQUESTS'
+
 union
+
 select '<tr><!16><td>', 'Buffer Cache: InnoDB Read Hit Ratio',
- '<td align=right>', format(100-t1.variable_value*100/t2.variable_value,2), '<td> >95', '<td>Increase INNODB_BUFFER_SIZE'
+
+ '<td class="align-right">', format(100-t1.variable_value*100/t2.variable_value,2), '<td> >95', '<td>Increase INNODB_BUFFER_SIZE'
+
 from performance_schema.global_status t1, performance_schema.global_status t2
+
 where t1.variable_name='INNODB_BUFFER_POOL_READS' and t2.variable_name='INNODB_BUFFER_POOL_READ_REQUESTS'
+
 union
+
 select '<tr><!17><td>', 'Buffer Cache: MyISAM Write Hit Ratio',
- '<td align=right>', format(100-t1.variable_value*100/t2.variable_value,2), '<td> >95', '<td>Increase KEY_BUFFER_SIZE'
+
+ '<td class="align-right">', format(100-t1.variable_value*100/t2.variable_value,2), '<td> >95', '<td>Increase KEY_BUFFER_SIZE'
+
 from performance_schema.global_status t1, performance_schema.global_status t2
+
 where t1.variable_name='KEY_WRITES' and t2.variable_name='KEY_WRITE_REQUESTS'
+
 union
+
 select '<tr><!18><td>', 'Log Cache: InnoDB Log Write Ratio',
- '<td align=right>', format(100-t1.variable_value*100/t2.variable_value,2), '<td> >95', '<td>Increase INNODB_LOG_BUFFER_SIZE'
+
+ '<td class="align-right">', format(100-t1.variable_value*100/t2.variable_value,2), '<td> >95', '<td>Increase INNODB_LOG_BUFFER_SIZE'
+
 from performance_schema.global_status t1, performance_schema.global_status t2
+
 where t1.variable_name='INNODB_LOG_WRITES' and t2.variable_name='INNODB_LOG_WRITE_REQUESTS'
+
 union
+
 select '<tr><!19a><td>', 'Query Cache: Efficiency (Hit/Select)',
- '<td align=right>', format(t1.variable_value*100/(t1.variable_value+t2.count_star),2), '<td> >30', '<td>'
+
+ '<td class="align-right">', format(t1.variable_value*100/(t1.variable_value+t2.count_star),2), '<td> >30', '<td>'
+
 from performance_schema.global_status t1, performance_schema.events_statements_summary_global_by_event_name t2
+
 where t1.variable_name='QCACHE_HITS'
+
   and t2.event_name='statement/sql/select'
+
 union
+
 select '<tr><!19b><td>', 'Query Cache: Hit ratio (Hit/Query Insert)',
- '<td align=right>', format(t1.variable_value*100/(t1.variable_value+t2.variable_value),2), '<td> >80', '<td>'
+
+ '<td class="align-right">', format(t1.variable_value*100/(t1.variable_value+t2.variable_value),2), '<td> >80', '<td>'
+
 from performance_schema.global_status t1, performance_schema.global_status t2
+
 where t1.variable_name='QCACHE_HITS'
+
   and t2.variable_name='QCACHE_INSERTS'
+
 union
-select '<tr><!20><td>', s.variable_name, '<td align=right>', concat(s.variable_value, ' /', v.variable_value),
+
+select '<tr><!20><td>', s.variable_name, '<td class="align-right">', concat(s.variable_value, ' / ', v.variable_value),
+
  '<td>Far from maximum', '<td>Increase MAX_CONNECTIONS'
+
 from performance_schema.global_status s, performance_schema.global_variables v
+
 where s.variable_name='THREADS_CONNECTED'
+
 and v.variable_name='MAX_CONNECTIONS'
+
 union
-select '<tr><!21><td>', variable_name, '<td align=right>', variable_value, '<td>LOW', '<td>Check user load'
+
+select '<tr><!21><td>', variable_name, '<td class="align-right">', variable_value, '<td>LOW', '<td>Check user load'
+
 from performance_schema.global_status
+
 where variable_name='THREADS_RUNNING'
+
 union
-select '<tr><!30><td>', variable_name, '<td align=right>', format(variable_value,0), '<td>LOW', '<td>Check application'
+
+select '<tr><!30><td>', variable_name, '<td class="align-right">', format(variable_value,0), '<td>LOW', '<td>Check application'
+
 from performance_schema.global_status
+
 where variable_name='SLOW_QUERIES'
+
 union
-select '<tr><!40><td>', g1.variable_name, ' #/sec.<td align=right>', format(g1.variable_value/g2.variable_value,5), '', ''
+
+select '<tr><!40><td>', g1.variable_name, ' #/sec.<td class="align-right">', format(g1.variable_value/g2.variable_value,5), '', ''
+
 from performance_schema.global_status g1, performance_schema.global_status g2
+
 where g1.variable_name='QUESTIONS'
+
   and g2.variable_name='UPTIME'
+
 union
-select '<tr><!41><td>', 'SELECT', ' #/sec.<td align=right>', format(g1.count_star/g2.variable_value,5), '', ''
+
+select '<tr><!41><td>', 'SELECT', ' #/sec.<td class="align-right">', format(g1.count_star/g2.variable_value,5), '', ''
+
 from performance_schema.events_statements_summary_global_by_event_name g1, performance_schema.global_status g2
+
 where g1.EVENT_NAME = 'statement/sql/select'
+
   and g2.variable_name='UPTIME'
+
 union
-select '<tr><!42><td>', 'COMMIT', ' #/sec. (TPS)<td align=right>', format(g1.count_star/g2.variable_value,5), '', ''
+
+select '<tr><!42><td>', 'COMMIT', ' #/sec. (TPS)<td class="align-right">', format(g1.count_star/g2.variable_value,5), '', ''
+
 from performance_schema.events_statements_summary_global_by_event_name g1, performance_schema.global_status g2
+
 where g1.EVENT_NAME = 'statement/sql/commit'
+
   and g2.variable_name='UPTIME'
+
 union
-select '<tr><!37><td>', g1.variable_name, ' #/sec.<td align=right>', format(g1.variable_value/g2.variable_value,5), '', ''
+
+select '<tr><!37><td>', g1.variable_name, ' #/sec.<td class="align-right">', format(g1.variable_value/g2.variable_value,5), '', ''
+
 from performance_schema.global_status g1, performance_schema.global_status g2
+
 where g1.variable_name='CONNECTIONS'
+
   and g2.variable_name='UPTIME'
+
 union
-select '<tr><!45><td>','COM DML #/sec.','<td align=right>',
+
+select '<tr><!45><td>','COM DML #/sec.','<td class="align-right">',
+
        format((g2.count_star+g3.count_star+g4.count_star+g5.count_star+g6.count_star
+
                +g7.count_star+g8.count_star+g9.count_star)/g1.variable_value,5),
+
        '', ''
+
 from performance_schema.global_status g1, performance_schema.events_statements_summary_global_by_event_name g2,
+
      performance_schema.events_statements_summary_global_by_event_name g3, performance_schema.events_statements_summary_global_by_event_name g4,
+
      performance_schema.events_statements_summary_global_by_event_name g5, performance_schema.events_statements_summary_global_by_event_name g6,
+
      performance_schema.events_statements_summary_global_by_event_name g7, performance_schema.events_statements_summary_global_by_event_name g8,
+
      performance_schema.events_statements_summary_global_by_event_name g9
+
 where g1.variable_name='UPTIME'
+
   and g2.event_name='statement/sql/insert'
+
   and g3.event_name ='statement/sql/update'
+
   and g4.event_name ='statement/sql/delete'
+
   and g5.event_name ='statement/sql/select'
+
   and g6.event_name ='statement/sql/update_multi'
+
   and g7.event_name ='statement/sql/delete_multi'
+
   and g8.event_name ='statement/sql/replace'
+
   and g9.event_name ='statement/sql/replace_select'
+
 union
-select '<tr><!50><td>', g1.variable_name, ' Mb/sec.<td align=right>',
+
+select '<tr><!50><td>', g1.variable_name, ' Mb/sec.<td class="align-right">',
+
        format(g1.variable_value*8/(g2.variable_value*1024*1024),5), '', ''
+
 from performance_schema.global_status g1, performance_schema.global_status g2
+
 where g1.variable_name='BYTES_SENT'
+
   and g2.variable_name='UPTIME'
+
 union
-select '<tr><!51><td>', g1.variable_name, ' Mb/sec.<td align=right>',
+
+select '<tr><!51><td>', g1.variable_name, ' Mb/sec.<td class="align-right">',
+
        format(g1.variable_value*8/(g2.variable_value*1024*1024),5), '', ''
+
 from performance_schema.global_status g1, performance_schema.global_status g2
+
 where g1.variable_name='BYTES_RECEIVED'
+
   and g2.variable_name='UPTIME'
+
 union
-select '<tr><!35><td>', 'DBcpu (SUM_TIMER_WAIT)', '<td align=right>',
+
+select '<tr><!35><td>', 'DBcpu (SUM_TIMER_WAIT)', '<td class="align-right">',
+
        format((sum(SUM_TIMER_WAIT)/1000000000000)/variable_value, 5), '', ''
+
   from performance_schema.global_status, performance_schema.events_statements_summary_global_by_event_name
+
  where variable_name='UPTIME'
+
  group by variable_value
+
 order by 1;
 
-
-select '</table><P><table border="2"><tr><td><b>Performance Advice</b></td></tr>' ;
-
-select '<tr><td><b>Expert suggestions on</b><td><b>Value</b><td><td><b>Action to correct</b>';
-select '<tr><!01><td>', g1.variable_name, ' #/hour<td align=right>',
+select '</table><p><table class="bordered sortable"><caption>Performance Advice</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Expert suggestions on<span class="tooltiptext">Expert suggestions on</span></th><th scope="col" class="tac tooltip">Value<span class="tooltiptext">Value</span></th><th scope="col" class="tac tooltip"><span class="tooltiptext"></span></th><th scope="col" class="tac tooltip">Action to correct<span class="tooltiptext">Action to correct</span></th>';
+select '</thead><tbody>';
+select '<tr><!01><td>', g1.variable_name, ' #/hour<td class="align-right">',
        format((g1.variable_value*60*60)/g2.variable_value,5), '<td>', '<td>Increase TABLE_OPEN_CACHE'
 from performance_schema.global_status g1, performance_schema.global_status g2
 where g1.variable_name='OPENED_TABLES'
   and g2.variable_name='UPTIME'
   and g1.variable_value*60*60/g2.variable_value>12
 union
-select '<tr><!02><td>', g1.variable_name, ' #/hour<td align=right>',
+select '<tr><!02><td>', g1.variable_name, ' #/hour<td class="align-right">',
        format((g1.variable_value*60*60)/g2.variable_value,5), '<td>', '<td>Increase SORT_BUFFER_SIZE'
 from performance_schema.global_status g1, performance_schema.global_status g2
 where g1.variable_name='SORT_MERGE_PASSES'
   and g2.variable_name='UPTIME'
   and g1.variable_value*60*60/g2.variable_value>12
 union
-select '<tr><!03><td>', g1.variable_name, ' %<td align=right>',
+select '<tr><!03><td>', g1.variable_name, ' %<td class="align-right">',
        format(g1.variable_value*100/(g1.variable_value+g2.variable_value),5), '<td>', '<td>Increase MAX_HEAP_TABLE_SIZE and TMP_TABLE_SIZE'
 from performance_schema.global_status g1, performance_schema.global_status g2
 where g1.variable_name='CREATED_TMP_DISK_TABLES'
   and g2.variable_name='CREATED_TMP_TABLES'
   and g1.variable_value/g2.variable_value>0.1
 union
-select '<tr><!04><td>', g1.variable_name, ' %<td align=right>',
+select '<tr><!04><td>', g1.variable_name, ' %<td class="align-right">',
        format(g1.variable_value*100/(g2.variable_value),5), '<td>', '<td>Increase BINLOG_CACHE_SIZE'
 from performance_schema.global_status g1, performance_schema.global_status g2
 where g1.variable_name='BINLOG_CACHE_DISK_USE'
   and g2.variable_name='BINLOG_CACHE_USE'
   and g1.variable_value/g2.variable_value>0.2
 union
-select '<tr><!05><td>', g1.variable_name, ' #/hour<td align=right>',
+select '<tr><!05><td>', g1.variable_name, ' #/hour<td class="align-right">',
        format((g1.variable_value*60*60)/g2.variable_value,5), '<td>', '<td>Increase INNODB_LOG_BUFFER_SIZE'
 from performance_schema.global_status g1, performance_schema.global_status g2
 where g1.variable_name='INNODB_LOG_WAITS'
   and g2.variable_name='UPTIME'
   and g1.variable_value*60*60/g2.variable_value>1
 union
-select '<tr><!06><td>', g1.variable_name, ' MB/hour<td align=right>',
+select '<tr><!06><td>', g1.variable_name, ' MB/hour<td class="align-right">',
        format((g1.variable_value*60*60)/(g2.variable_value*1024*1024),5), '<td>', '<td>Tune INNODB_LOG_FILE_SIZE'
 from performance_schema.global_status g1, performance_schema.global_status g2
 where g1.variable_name='INNODB_OS_LOG_WRITTEN'
   and g2.variable_name='UPTIME'
   and (g1.variable_value*60*60)/(g2.variable_value*1024*1024)>5
 order by 1;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><A NAME="stat56"></A>' ;
-select '<P><table border="2"><tr><td><b>Uptime</b><td>', truncate(variable_value/(3600*24),0),
-       'days ', SEC_TO_TIME(mod(variable_value, 3600*24)), '</table>'
+select '<p><a id="stat56"></a>' ;
+select '<p><table class="bordered sortable"><caption>Uptime</caption><tr><td>', truncate(variable_value/(3600*24),0),
+       'days ', SEC_TO_TIME(mod(variable_value, 3600*24)), '</td></tr></table>'
   from performance_schema.global_status
  where variable_name='UPTIME';
 
-select '<P><table border="2"><tr><td><b>Statement Events</b></td></tr>' ;
-select '<tr><td><b>Event</b>',
-       '<td><b>Count</b>','<td><b>Sum Timer</b>','<td><b>Human Timer</b>';
-select '<tr><td>',EVENT_NAME, '<td align="right">',COUNT_STAR, '<td align="right">',SUM_TIMER_WAIT,
-       '<td align="right">', SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000)
+select '<p><table class="bordered sortable"><caption>Statement Events</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Event<span class="tooltiptext">Event</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th><th scope="col" class="tac tooltip">Sum Timer<span class="tooltiptext">Sum Timer</span></th><th scope="col" class="tac tooltip">Human Timer<span class="tooltiptext">Human Timer</span></th>';
+select '</thead><tbody>';
+select '<tr><td>',EVENT_NAME, '<td class="align-right">',COUNT_STAR, '<td class="align-right">',SUM_TIMER_WAIT,
+       '<td class="align-right">', SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000)
   from performance_schema.events_statements_summary_global_by_event_name
  where count_star > 0 
  order by SUM_TIMER_WAIT desc 
  limit 10;
-select '</table><p>';
+select '</tbody></table><p>';
 
-select '<P><table border="2"><tr><td><b>Wait Events</b></td></tr>' ;
-select '<tr><td><b>Event</b>',
-       '<td><b>Count</b>','<td><b>Sum Timer</b>','<td><b>Human Timer</b>';
-select '<tr><td>',EVENT_NAME, '<td align="right">',COUNT_STAR, '<td align="right">',SUM_TIMER_WAIT,
-       '<td align="right">', SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000)  
+select '<p><table class="bordered sortable"><caption>Wait Events</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Event<span class="tooltiptext">Event</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th><th scope="col" class="tac tooltip">Sum Timer<span class="tooltiptext">Sum Timer</span></th><th scope="col" class="tac tooltip">Human Timer<span class="tooltiptext">Human Timer</span></th>';
+select '</thead><tbody>';
+select '<tr><td>',EVENT_NAME, '<td class="align-right">',COUNT_STAR, '<td class="align-right">',SUM_TIMER_WAIT,
+       '<td class="align-right">', SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000)  
   from performance_schema.events_waits_summary_global_by_event_name  
  where count_star > 0 
    and event_name != 'idle'
  order by SUM_TIMER_WAIT desc 
  limit 10;
-select '</table><p>';
+select '</tbody></table><p>';
 
-select '<P><table border="2"><tr><td><b>Lock Wait</b></td></tr>' ;
-select '<tr><td><b>Type</b>','<td><b>Schema</b>','<td><b>Name</b>',
-       '<td><b>Count</b>','<td><b>Sum Timer</b>','<td><b>Human Timer</b>';
+select '<p><table class="bordered sortable"><caption>Lock Wait</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th><th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th><th scope="col" class="tac tooltip">Name<span class="tooltiptext">Name</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th><th scope="col" class="tac tooltip">Sum Timer<span class="tooltiptext">Sum Timer</span></th><th scope="col" class="tac tooltip">Human Timer<span class="tooltiptext">Human Timer</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',OBJECT_TYPE, '<td>', OBJECT_SCHEMA, '<td>', OBJECT_NAME,
-       '<td align="right">', COUNT_STAR, '<td align="right">', SUM_TIMER_WAIT,
-       '<td align="right">', SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000) 
+       '<td class="align-right">', COUNT_STAR, '<td class="align-right">', SUM_TIMER_WAIT,
+       '<td class="align-right">', SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000) 
   from performance_schema.table_lock_waits_summary_by_table
  where count_star > 0 
  order by SUM_TIMER_WAIT desc 
  limit 10;
-select '</table><p>';
+select '</tbody></table><p>';
 
-select '<P><table border="2"><tr><td><b>File events</b></td></tr>' ;
-select '<tr><td><b>Event</b>',
-       '<td><b>Count</b>','<td><b>Sum Timer</b>','<td><b>Human Timer</b>';
-select '<tr><td>',EVENT_NAME,'<td align="right">',COUNT_STAR,'<td align="right">',SUM_TIMER_WAIT,
-       '<td align="right">', SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000) 
+select '<p><table class="bordered sortable"><caption>File events</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Event<span class="tooltiptext">Event</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th><th scope="col" class="tac tooltip">Sum Timer<span class="tooltiptext">Sum Timer</span></th><th scope="col" class="tac tooltip">Human Timer<span class="tooltiptext">Human Timer</span></th>';
+select '</thead><tbody>';
+select '<tr><td>',EVENT_NAME,'<td class="align-right">',COUNT_STAR,'<td class="align-right">',SUM_TIMER_WAIT,
+       '<td class="align-right">', SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000) 
   from performance_schema.file_summary_by_event_name order by SUM_TIMER_WAIT desc limit 10;
-select '</table><p>';
+select '</tbody></table><p>';
 
-select '<P><table border="2"><tr><td><b>File access</b></td></tr>' ;
-select '<tr><td><b>File Name</b>','<td><b>Event Name</b>',
-       '<td><b>Count</b>','<td><b>Sum Timer</b>','<td><b>Human Timer</b>',
-       '<td><b>#Read</b>','<td><b>Timer Read</b>','<td><b>Byte Read</b>',
-       '<td><b>#Write</b>','<td><b>Timer Write</b>','<td><b>Byte Write</b>';
-select '<tr><td>',FILE_NAME,'<td>',EVENT_NAME,'<td align="right">',COUNT_STAR,'<td align="right">',SUM_TIMER_WAIT,'<td align="right">',
- SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000),'<td align="right">',
- COUNT_READ,'<td align="right">',SUM_TIMER_READ,'<td align="right">',SUM_NUMBER_OF_BYTES_READ,'<td align="right">',
- COUNT_WRITE,'<td align="right">',SUM_TIMER_WRITE,'<td align="right">',SUM_NUMBER_OF_BYTES_WRITE
+select '<p><table class="bordered sortable sfont"><caption>File access</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">File Name<span class="tooltiptext">File Name</span></th><th scope="col" class="tac tooltip">Event Name<span class="tooltiptext">Event Name</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th><th scope="col" class="tac tooltip">Sum Timer<span class="tooltiptext">Sum Timer</span></th><th scope="col" class="tac tooltip">Human Timer<span class="tooltiptext">Human Timer</span></th>';
+select '<th scope="col" class="tac tooltip">#Read<span class="tooltiptext">#Read</span></th><th scope="col" class="tac tooltip">Timer Read<span class="tooltiptext">Timer Read</span></th><th scope="col" class="tac tooltip">Byte Read<span class="tooltiptext">Byte Read</span></th>';
+select '<th scope="col" class="tac tooltip">#Write<span class="tooltiptext">#Write</span></th><th scope="col" class="tac tooltip">Timer Write<span class="tooltiptext">Timer Write</span></th><th scope="col" class="tac tooltip">Byte Write<span class="tooltiptext">Byte Write</span></th>';
+select '</thead><tbody>';
+select '<tr><td>',FILE_NAME,'<td>',EVENT_NAME,'<td class="align-right">',COUNT_STAR,'<td class="align-right">',SUM_TIMER_WAIT,'<td class="align-right">',
+ SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000),'<td class="align-right">',
+ COUNT_READ,'<td class="align-right">',SUM_TIMER_READ,'<td class="align-right">',SUM_NUMBER_OF_BYTES_READ,'<td class="align-right">',
+ COUNT_WRITE,'<td class="align-right">',SUM_TIMER_WRITE,'<td class="align-right">',SUM_NUMBER_OF_BYTES_WRITE
   from performance_schema.file_summary_by_instance order by SUM_TIMER_WAIT desc limit 10;
-select '</table><p>';
+select '</tbody></table><p>';
 
-select '<a id="sqls"></a><P><table border="2"><tr><td><b>SQL Statements</b></td>' ;
-select '<td align="right">Representativeness:',
-       round((1-sum(if(digest is null, count_star,0))/sum(count_star))*100,2), '%'
+select '<a id="sqls"></a> <p><table class="bordered sortable sfont"><caption>SQL Statements (',
+       round((1-sum(if(digest is null, count_star,0))/sum(count_star))*100,2),
+       '% )</caption><thead><tr>'
   from performance_schema.events_statements_summary_by_digest;
-select '<tr><td><b>Schema</b>','<td><b>Text</b>',
-       '<td><b>Count</b>','<td><b>Sum Timer</b>','<td><b>Human Timer</b>','<td><b>Average (sec.)</b>',
-       '<td><b>Rows affected</b>','<td><b>Rows Sent</b>','<td><b>Rows Examined</b>',
-       '<td><b>TMP Disk Create</b>','<td><b>TMP Create</b>',
-       '<td><b>Sort Merge#</b>','<td><b>No Index</b>','<td><b>No Good Index</b>';
-select '<tr><td>',SCHEMA_NAME,'<td>',DIGEST_TEXT,'<td align="right">',COUNT_STAR,'<td align="right">',
- SUM_TIMER_WAIT,'<td align="right">',SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000),'<td align="right">',
- round(AVG_TIMER_WAIT/1000000000000,3) AVG_TIMER_WAIT,'<td align="right">',
- SUM_ROWS_AFFECTED,'<td align="right">',SUM_ROWS_SENT,'<td align="right">',SUM_ROWS_EXAMINED,'<td align="right">',
+select '<th scope="col" class="tac tooltip">Schema <span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Text <span class="tooltiptext">Query, click on the text to see the full query text</span></th>';
+select '<th scope="col" class="tac tooltip">Count <span class="tooltiptext"> Count </span></th>';
+select '<th scope="col" class="tac tooltip">Sum Timer <span class="tooltiptext">Total time spent</span></th>';
+select '<th scope="col" class="tac tooltip">Human Timer <span class="tooltiptext">Human Timer</span></th>';
+select '<th scope="col" class="tac tooltip">Average <span class="tooltiptext">Average execution in seconds</span></th>';
+select '<th scope="col" class="tac tooltip">Rows affected <span class="tooltiptext">Rows affected</span></th>';
+select '<th scope="col" class="tac tooltip">Rows Sent <span class="tooltiptext">Rows Sent</span></th>';
+select '<th scope="col" class="tac tooltip">Rows Examined <span class="tooltiptext">Rows Examined</span></th>';
+select '<th scope="col" class="tac tooltip">TMP Disk Create <span class="tooltiptext">TMP Disk Create</span></th>';
+select '<th scope="col" class="tac tooltip">TMP Create <span class="tooltiptext">TMP Create</span></th>';
+select '<th scope="col" class="tac tooltip">Sort Merge# <span class="tooltiptext">Number of Sort Merge</span></th>';
+select '<th scope="col" class="tac tooltip">No Index <span class="tooltiptext">No Index</span></th>';
+select '<th scope="col" class="tac tooltip">No Good Index <span class="tooltiptext">No Good Index</span></th>';
+select '</thead><tbody>';
+select '<tr><td>',SCHEMA_NAME,'<td><div class="truncate">',DIGEST_TEXT,
+ '</div><td class="align-right">',COUNT_STAR,'<td class="align-\1">',
+ SUM_TIMER_WAIT,'<td class="align-\1">',SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000),'<td class="align-right">',
+ round(AVG_TIMER_WAIT/1000000000000,3) AVG_TIMER_WAIT,'<td class="align-right">',
+ SUM_ROWS_AFFECTED,'<td class="align-right">',SUM_ROWS_SENT,'<td class="align-right">',SUM_ROWS_EXAMINED,'<td class="align-right">',
  SUM_CREATED_TMP_DISK_TABLES,'<td>',SUM_CREATED_TMP_TABLES,'<td>',SUM_SORT_MERGE_PASSES,'<td>', 
- SUM_NO_INDEX_USED,'<td align="right">',SUM_NO_GOOD_INDEX_USED
+ SUM_NO_INDEX_USED,'<td class="align-right">',SUM_NO_GOOD_INDEX_USED
   from performance_schema.events_statements_summary_by_digest order by SUM_TIMER_WAIT desc limit 50;
-select '</table><p>';
+select '</tbody></table><p>';
 
-select '<p><a id="sqlslow"></a><p><table border="2"><tr><td><b>Slowest Statements</b>' ;
-select '<tr><td><b>Schema</b>','<td><b>Text</b>',
-       '<td><b>Count</b>','<td><b>Sum Timer</b>','<td><b>Human Timer</b>','<td><b>Average (sec.)</b>',
-       '<td><b>Rows affected</b>','<td><b>Rows Sent</b>','<td><b>Rows Examined</b>',
-       '<td><b>TMP Disk Create</b>','<td><b>TMP Create</b>',
-       '<td><b>Sort Merge#</b>','<td><b>No Index</b>','<td><b>No Good Index</b>';
-select '<tr><td>',SCHEMA_NAME,'<td>',DIGEST_TEXT,'<td align="right">',COUNT_STAR,'<td align="right">',
- SUM_TIMER_WAIT,'<td align="right">',SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000),'<td align="right">',
- round(AVG_TIMER_WAIT/1000000000000,3) AVG_TIMER_WAIT,'<td align="right">',
- SUM_ROWS_AFFECTED,'<td align="right">',SUM_ROWS_SENT,'<td align="right">',SUM_ROWS_EXAMINED,'<td align="right">',
+select '<a id="sqlslow"></a> <p><table class="bordered sortable sfont"><caption>Slowest Statements</caption><thead><tr>';
+select '<th scope="col" class="tac tooltip">Schema <span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Text <span class="tooltiptext">Query, click on the text to see the full query text</span></th>';
+select '<th scope="col" class="tac tooltip">Count <span class="tooltiptext"> Count </span></th>';
+select '<th scope="col" class="tac tooltip">Sum Timer <span class="tooltiptext">Total time spent</span></th>';
+select '<th scope="col" class="tac tooltip">Human Timer <span class="tooltiptext">Human Timer</span></th>';
+select '<th scope="col" class="tac tooltip">Average <span class="tooltiptext">Average execution in seconds</span></th>';
+select '<th scope="col" class="tac tooltip">Rows affected <span class="tooltiptext">Rows affected</span></th>';
+select '<th scope="col" class="tac tooltip">Rows Sent <span class="tooltiptext">Rows Sent</span></th>';
+select '<th scope="col" class="tac tooltip">Rows Examined <span class="tooltiptext">Rows Examined</span></th>';
+select '<th scope="col" class="tac tooltip">TMP Disk Create <span class="tooltiptext">TMP Disk Create</span></th>';
+select '<th scope="col" class="tac tooltip">TMP Create <span class="tooltiptext">TMP Create</span></th>';
+select '<th scope="col" class="tac tooltip">Sort Merge# <span class="tooltiptext">Number of Sort Merge</span></th>';
+select '<th scope="col" class="tac tooltip">No Index <span class="tooltiptext">No Index</span></th>';
+select '<th scope="col" class="tac tooltip">No Good Index <span class="tooltiptext">No Good Index</span></th>';
+select '</thead><tbody>';
+select '<tr><td>',SCHEMA_NAME,'<td><div class="truncate">',DIGEST_TEXT,
+ '</div><td class="align-right">',COUNT_STAR,'<td class="align-\1">',
+ SUM_TIMER_WAIT,'<td class="align-\1">',SEC_TO_TIME(SUM_TIMER_WAIT/1000000000000),'<td class="align-right">',
+ round(AVG_TIMER_WAIT/1000000000000,3) AVG_TIMER_WAIT,'<td class="align-right">',
+ SUM_ROWS_AFFECTED,'<td class="align-right">',SUM_ROWS_SENT,'<td class="align-right">',SUM_ROWS_EXAMINED,'<td class="align-right">',
  SUM_CREATED_TMP_DISK_TABLES,'<td>',SUM_CREATED_TMP_TABLES,'<td>',SUM_SORT_MERGE_PASSES,'<td>', 
- SUM_NO_INDEX_USED,'<td align="right">',SUM_NO_GOOD_INDEX_USED
+ SUM_NO_INDEX_USED,'<td class="align-right">',SUM_NO_GOOD_INDEX_USED
   from performance_schema.events_statements_summary_by_digest order by AVG_TIMER_WAIT desc limit 20;
-select '</table><p>';
+select '</tbody></table><p>';
 
-select '<P><table border="2"><tr><td><b>Consumers</b></td></tr>' ;
-select '<tr><td><b>Name</b>',
-       '<td><b>Enabled</b>';
+select '<p><table class="bordered sortable"><caption>Consumers</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Name<span class="tooltiptext">Name</span></th>';
+select '<th scope="col" class="tac tooltip">Enabled<span class="tooltiptext">Enabled</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', NAME, '<td>',ENABLED
  from performance_schema.setup_consumers
  order by enabled, name;
-select '</table><p><hr>';
+select '</tbody></table><p><hr>';
 
-select '<P><A NAME="idx"></A>' ;
-select '<P><pre><table border="2"><tr><td><b>Indexes</b></td></tr>' ;
-select '<tr><td><b>Table</b>', '<td><b>Index</b>', '<td><b>Unique</b>', '<td><b>Columns</b>';
+select '<p><a id="idx"></a>' ;
+select '<p><pre><table class="bordered sortable"><caption>Indexes</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Table<span class="tooltiptext">Table</span></th>', '<th scope="col" class="tac tooltip">Index<span class="tooltiptext">Index</span></th>', '<th scope="col" class="tac tooltip">Unique<span class="tooltiptext">Unique</span></th>', '<th scope="col" class="tac tooltip">Columns<span class="tooltiptext">Columns</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',concat(table_schema, '.',table_name) as table_name, '<td>',index_name, 
        '<td>',if(NON_UNIQUE, '','UNIQUE'), '<td>',group_concat(column_name order by SEQ_IN_INDEX asc separator ', ')
   FROM information_schema.statistics
  GROUP BY table_schema, table_name, index_name, NON_UNIQUE
  ORDER BY table_schema, table_name, index_name;
-select '</table></pre><p><hr>';
+select '</tbody></table></pre><p><hr>';
 
-select '<P><A NAME="big"></A>' ;
-select '<P><table border="2"><tr><td><b>Biggest Objects</b></td></tr>' ;
-select '<tr><td><b>Database</b>',
- '<td><b>Object</b>',
- '<td><b>Type</b>',
- '<td><b>Engine</b>',
- '<td><b>Bytes</b>',
- '<td><b>Est. rows</b>';
+select '<p><a id="big"></a>' ;
+select '<p><table class="bordered sortable"><caption>Biggest Objects</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Database<span class="tooltiptext">Database</span></th>';
+select '<th scope="col" class="tac tooltip">Object<span class="tooltiptext">Object</span></th>';
+select '<th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th>';
+select '<th scope="col" class="tac tooltip">Engine<span class="tooltiptext">Engine</span></th>';
+select '<th scope="col" class="tac tooltip">Bytes<span class="tooltiptext">Bytes</span></th>';
+select '<th scope="col" class="tac tooltip">Est. rows<span class="tooltiptext">Est. rows</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', table_schema,
 	'<td>', table_name,
 	'<td>T','<td>',engine,
-	'<td align=right>', format(data_length+index_length,0),
-	'<td align=right>', format(table_rows,0)
+	'<td class="align-right">', format(data_length+index_length,0),
+	'<td class="align-right">', format(table_rows,0)
 from tables
 order by data_length+index_length desc
 limit 32;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="hostc"></A>' ;
-select '<P><table border="2"><tr><td><b>Host Connections</b></td></tr>' ;
-select '<tr><td><b>Host</b>',
- '<td><b>Current Connections</b>',
- '<td><b>Total Connections</b>';
+select '<p><a id="hostc"></a>' ;
+select '<p><table class="bordered sortable"><caption>Host Connections</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Host<span class="tooltiptext">Host</span></th>';
+select '<th scope="col" class="tac tooltip">Current Connections<span class="tooltiptext">Current Connections</span></th>';
+select '<th scope="col" class="tac tooltip">Total Connections<span class="tooltiptext">Total Connections</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',HOST, '<td>', CURRENT_CONNECTIONS, '<td>', TOTAL_CONNECTIONS
   from performance_schema.hosts
  order by CURRENT_CONNECTIONS desc, TOTAL_CONNECTIONS desc;
 
 select '<tr><td>TOTAL HOSTS:',count(distinct HOST), '<td>', sum(CURRENT_CONNECTIONS), '<td>', sum(TOTAL_CONNECTIONS)
   from performance_schema.hosts;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Host Cache</b></td></tr>' ;
-select '<tr><td><b>Host</b>',
- '<td><b>IP</b>',
- '<td><b>Validated</b>',
- '<td><b>SUM Errors</b>',
- '<td><b>First Seen</b>',
- '<td><b>Last Seen</b>',
- '<td><b>Last Error Seen</b>',
- '<td><b># Handshake Err.</b>',
- '<td><b># Authentication Err.</b>',
- '<td><b># ACL Err.</b>'
-;
+select '<p><table class="bordered sortable"><caption>Host Cache</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Host<span class="tooltiptext">Host</span></th>';
+select '<th scope="col" class="tac tooltip">IP<span class="tooltiptext">IP</span></th>';
+select '<th scope="col" class="tac tooltip">Validated<span class="tooltiptext">Validated</span></th>';
+select '<th scope="col" class="tac tooltip">SUM Errors<span class="tooltiptext">SUM Errors</span></th>';
+select '<th scope="col" class="tac tooltip">First Seen<span class="tooltiptext">First Seen</span></th>';
+select '<th scope="col" class="tac tooltip">Last Seen<span class="tooltiptext">Last Seen</span></th>';
+select '<th scope="col" class="tac tooltip">Last Error Seen<span class="tooltiptext">Last Error Seen</span></th>';
+select '<th scope="col" class="tac tooltip"># Handshake Err.<span class="tooltiptext"># Handshake Err.</span></th>';
+select '<th scope="col" class="tac tooltip"># Authentication Err.<span class="tooltiptext"># Authentication Err.</span></th>';
+select '<th scope="col" class="tac tooltip"># ACL Err.<span class="tooltiptext"># ACL Err.</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', host, '<td>', ip, '<td>', host_validated,
-       '<td align="right"><b>', SUM_CONNECT_ERRORS ERR,
+       '<td class="align-right"><b>', SUM_CONNECT_ERRORS ERR,
        '</b><td>', FIRST_SEEN, '<td>', LAST_SEEN, '<td>', LAST_ERROR_SEEN,
-       '<td align="right">', COUNT_HANDSHAKE_ERRORS,
-       '<td align="right">', COUNT_AUTHENTICATION_ERRORS,
-       '<td align="right">', COUNT_HOST_ACL_ERRORS
+       '<td class="align-right">', COUNT_HANDSHAKE_ERRORS,
+       '<td class="align-right">', COUNT_AUTHENTICATION_ERRORS,
+       '<td class="align-right">', COUNT_HOST_ACL_ERRORS
 from performance_schema.host_cache;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Max Connect Errors</b><td>&nbsp;', @@global.max_connect_errors;
-select '</table><p><hr>' ;
+select '<p><table class="bordered sortable"><caption>Max Connect Errors</caption><tr><td>', @@global.max_connect_errors, '</td></tr></table><p><hr>' ;
 
-select '<P><A NAME="repl"></A>' ;
-select '<P><table border="2"><tr><td><b>Replication</b></td></tr>' ;
+select '<p><a id="repl"></a>' ;
+select '<p><table class="bordered sortable"><caption>Replication</caption>' ;
 select '<tr><td><pre><b>Source</b>' ;
-show master status;
+-- show master status
+SHOW BINARY LOG STATUS; 
 SHOW VARIABLES LIKE 'rpl_semi_sync_master_%';
 SHOW STATUS LIKE 'rpl_semi_sync_master_status';
 select '<p>' ;
@@ -1122,84 +1302,90 @@ show status where variable_name in ('wsrep_cluster_size', 'wsrep_cluster_status'
 show status where variable_name in ('wsrep_local_state', 'wsrep_local_recv_queue', 'wsrep_reject_queries', 'wsrep_sst_donor_rejects_queries', 'wsrep_cluster_status', 'wsrep_desync');
 select '</pre></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Replica Connection configuration</b></td></tr>' ;
-select '<tr><td><b> CHANNEL NAME </b>',
- '<td><b> MASTER HOST</b>',
- '<td><b> PORT </b>',
- '<td><b> USER </b>',
- '<td><b> AUTO POSITION </b>',
- '<td><b> SSL </b>',
- '<td><b> HEARTBEAT_INTERVAL</b>';
+select '<p><table class="bordered sortable"><caption>Replica Connection configuration</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">CHANNEL NAME<span class="tooltiptext">CHANNEL NAME</span></th>';
+select '<th scope="col" class="tac tooltip">MASTER HOST<span class="tooltiptext">MASTER HOST</span></th>';
+select '<th scope="col" class="tac tooltip">PORT<span class="tooltiptext">PORT</span></th>';
+select '<th scope="col" class="tac tooltip">USER<span class="tooltiptext">USER</span></th>';
+select '<th scope="col" class="tac tooltip">AUTO POSITION<span class="tooltiptext">AUTO POSITION</span></th>';
+select '<th scope="col" class="tac tooltip">SSL<span class="tooltiptext">SSL</span></th>';
+select '<th scope="col" class="tac tooltip">HEARTBEAT_INTERVAL<span class="tooltiptext">HEARTBEAT_INTERVAL</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',CHANNEL_NAME, '<td>',HOST, '<td>',PORT, '<td>',USER, '<td>',AUTO_POSITION,
        '<td>',SSL_ALLOWED, '<td>',HEARTBEAT_INTERVAL
   from performance_schema.replication_connection_configuration;
-select '</table><p>' ;
-select '<P><table border="2"><tr><td><b>Connection status</b></td></tr>' ;
-select '<tr><td><b> CHANNEL NAME </b>',
- '<td><b> GROUP NAME</b>',
- '<td><b> SOURCE UUID </b>',
- '<td><b> THREAD ID </b>',
- '<td><b> SERVICE STATE </b>',
- '<td><b> RECEIVED HEARTBEATS </b>',
- '<td><b> LAST HEARTBEAT </b>',
- '<td><b> RECEIVED TRANSACTION SET </b>',
- '<td><b> LAST_ERROR NUMBER </b>',
- '<td><b> LAST_ERROR MESSAGE </b>',
- '<td><b> LAST_ERROR TIMESTAMP</b>';
+select '</tbody></table><p>' ;
+select '<p><table class="bordered sortable"><caption>Connection status</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">CHANNEL NAME<span class="tooltiptext">CHANNEL NAME</span></th>';
+select '<th scope="col" class="tac tooltip">GROUP NAME<span class="tooltiptext">GROUP NAME</span></th>';
+select '<th scope="col" class="tac tooltip">SOURCE UUID<span class="tooltiptext">SOURCE UUID</span></th>';
+select '<th scope="col" class="tac tooltip">THREAD ID<span class="tooltiptext">THREAD ID</span></th>';
+select '<th scope="col" class="tac tooltip">SERVICE STATE<span class="tooltiptext">SERVICE STATE</span></th>';
+select '<th scope="col" class="tac tooltip">RECEIVED HEARTBEATS<span class="tooltiptext">RECEIVED HEARTBEATS</span></th>';
+select '<th scope="col" class="tac tooltip">LAST HEARTBEAT<span class="tooltiptext">LAST HEARTBEAT</span></th>';
+select '<th scope="col" class="tac tooltip">RECEIVED TRANSACTION SET<span class="tooltiptext">RECEIVED TRANSACTION SET</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR NUMBER<span class="tooltiptext">LAST_ERROR NUMBER</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR MESSAGE<span class="tooltiptext">LAST_ERROR MESSAGE</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR TIMESTAMP<span class="tooltiptext">LAST_ERROR TIMESTAMP</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',CHANNEL_NAME, '<td>',GROUP_NAME, '<td>',SOURCE_UUID, '<td>',THREAD_ID,
        '<td>',SERVICE_STATE, '<td>',COUNT_RECEIVED_HEARTBEATS,
        '<td>',LAST_HEARTBEAT_TIMESTAMP, '<td>',RECEIVED_TRANSACTION_SET, '<td>',LAST_ERROR_NUMBER,
        '<td>',LAST_ERROR_MESSAGE, '<td>',LAST_ERROR_TIMESTAMP 
   from performance_schema.replication_connection_status;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Applier Status</b></td></tr>' ;
-select '<tr><td><b> CHANNEL NAME </b>',
- '<td><b> THREAD_ID </b>',
- '<td><b> SERVICE_STATE </b>',
- '<td><b> LAST_ERROR NUMBER </b>',
- '<td><b> LAST_ERROR MESSAGE </b>',
- '<td><b> LAST_ERROR TIMESTAMP </b>';
+select '<p><table class="bordered sortable"><caption>Applier Status</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">CHANNEL NAME<span class="tooltiptext">CHANNEL NAME</span></th>';
+select '<th scope="col" class="tac tooltip">THREAD_ID<span class="tooltiptext">THREAD_ID</span></th>';
+select '<th scope="col" class="tac tooltip">SERVICE_STATE<span class="tooltiptext">SERVICE_STATE</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR NUMBER<span class="tooltiptext">LAST_ERROR NUMBER</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR MESSAGE<span class="tooltiptext">LAST_ERROR MESSAGE</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR TIMESTAMP<span class="tooltiptext">LAST_ERROR TIMESTAMP</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',CHANNEL_NAME, '<td>',THREAD_ID, '<td>',SERVICE_STATE, '<td>',LAST_ERROR_NUMBER,
        '<td>',LAST_ERROR_MESSAGE, '<td>',LAST_ERROR_TIMESTAMP
   from performance_schema.replication_applier_status_by_coordinator;
-select '</table><p>' ;
-select '<P><table border="2"><tr><td><b>Applier Status by worker</b></td></tr>' ;
-select '<tr><td><b> CHANNEL NAME </b>',
- '<td><b> WORKER_ID </b>',
- '<td><b> THREAD_ID </b>',
- '<td><b> SERVICE_STATE </b>',
- '<td><b> LAST_APPLIED_TRANSACTION </b>',
- '<td><b> LAST_ERROR NUMBER </b>',
- '<td><b> LAST_ERROR MESSAGE </b>',
- '<td><b> LAST_ERROR TIMESTAMP </b>';
+select '</tbody></table><p>' ;
+select '<p><table class="bordered sortable"><caption>Applier Status by worker</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">CHANNEL NAME<span class="tooltiptext">CHANNEL NAME</span></th>';
+select '<th scope="col" class="tac tooltip">WORKER_ID<span class="tooltiptext">WORKER_ID</span></th>';
+select '<th scope="col" class="tac tooltip">THREAD_ID<span class="tooltiptext">THREAD_ID</span></th>';
+select '<th scope="col" class="tac tooltip">SERVICE_STATE<span class="tooltiptext">SERVICE_STATE</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_APPLIED_TRANSACTION<span class="tooltiptext">LAST_APPLIED_TRANSACTION</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR NUMBER<span class="tooltiptext">LAST_ERROR NUMBER</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR MESSAGE<span class="tooltiptext">LAST_ERROR MESSAGE</span></th>';
+select '<th scope="col" class="tac tooltip">LAST_ERROR TIMESTAMP<span class="tooltiptext">LAST_ERROR TIMESTAMP</span></th>';
+select '</thead><tbody>';
 select '<tr><td>',CHANNEL_NAME, '<td>',WORKER_ID, '<td>',THREAD_ID,
        '<td>',SERVICE_STATE, '<td>',LAST_APPLIED_TRANSACTION,
        '<td>',LAST_ERROR_NUMBER, '<td>',LAST_ERROR_MESSAGE, '<td>',LAST_ERROR_TIMESTAMP 
   from performance_schema.replication_applier_status_by_worker;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Group Replication/InnoDB Cluster</b></td></tr>' ;
-select '<tr><td><b> MEMBER_HOST </b>',
- '<td><b> MEMBER_PORT </b>',
- '<td><b> MEMBER_ID </b>',
- '<td><b> MEMBER_STATE </b>';
+select '<p><table class="bordered sortable"><caption>Group Replication/InnoDB Cluster</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">MEMBER_HOST<span class="tooltiptext">MEMBER_HOST</span></th>';
+select '<th scope="col" class="tac tooltip">MEMBER_PORT<span class="tooltiptext">MEMBER_PORT</span></th>';
+select '<th scope="col" class="tac tooltip">MEMBER_ID<span class="tooltiptext">MEMBER_ID</span></th>';
+select '<th scope="col" class="tac tooltip">MEMBER_STATE<span class="tooltiptext">MEMBER_STATE</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', MEMBER_HOST, '<td>',MEMBER_PORT, '<td>',MEMBER_ID, '<td>',MEMBER_STATE
   from performance_schema.replication_group_members;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Primary Member</b></td></tr>' ;
+select '<p><table class="bordered sortable"><caption>Primary Member</caption><thead><tr><th scope="col" class="tac tooltip">Primary Member<span class="tooltiptext">Primary Member</span></th><th scope="col" class="tac tooltip">Host<span class="tooltiptext">Host</span></th></tr></thead><tbody>' ;
 SELECT '<tr><td>', VARIABLE_VALUE, '<td>', member_host, ':', member_port
   FROM performance_schema.global_status
   JOIN performance_schema.replication_group_members
  WHERE VARIABLE_NAME= 'group_replication_primary_member'
    AND member_id=variable_value;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><A NAME="gtid"></A>' ;
-select '<P><table border="2"><tr><td><b>GTID</b></td></tr>' ;
-select '<tr><td><b>Parameter</b>',
- '<td><b>Value</b>' ;
+select '<p><a id="gtid"></a>' ;
+select '<p><table class="bordered sortable"><caption>GTID</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Parameter<span class="tooltiptext">Parameter</span></th>';
+select '<th scope="col" class="tac tooltip">Value<span class="tooltiptext">Value</span></th>' ;
+select '</thead><tbody>';
 select '<tr><td>', variable_name, '<td>', variable_value
   from performance_schema.global_variables
  where variable_name = 'server_uuid'
@@ -1208,23 +1394,26 @@ select '<tr><td>', variable_name, '<td>', variable_value
   from performance_schema.global_variables
  where variable_name like '%gtid%'
  order by variable_name;
-select '</table><p><p>' ;
+select '</tbody></table><p><p>' ;
 
-select '<P><A NAME="repl_app"></A>' ;
-select '<pre><P><b>Cluster restrictions to APPs</b><p>' ;
+select '<p><a id="repl_app"></a>' ;
+select '<pre><p><b>Cluster restrictions to APPs</b><p>' ;
 
-select '<P><table border="2"><tr><td><b>non-InnoDB Engines</b></td></tr>' ;
-select '<tr><td><b>Table</b>', '<td><b>Engine</b>', '<td><b>Rows</b>', '<td><b>Size MB</b>';
+select '<p><table class="bordered sortable"><caption>non-InnoDB Engines</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Table<span class="tooltiptext">Table</span></th>', '<th scope="col" class="tac tooltip">Engine<span class="tooltiptext">Engine</span></th>', '<th scope="col" class="tac tooltip">Rows<span class="tooltiptext">Rows</span></th>', '<th scope="col" class="tac tooltip">Size MB<span class="tooltiptext">Size MB</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',concat(table_schema,'.',table_name), '<td>',engine, '<td>',table_rows, 
        '<td>',round((index_length+data_length)/1024/1024,2)
   FROM information_schema.tables 
  WHERE (engine != 'InnoDB')
    AND table_schema NOT IN ('information_schema', 'mysql', 'performance_schema')
  ORDER BY table_schema, table_name;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Tables without PK or UKs</b></td></tr>' ;
-select '<tr><td><b>Table</b>', '<td><b>Engine</b>';
+select '<p><table class="bordered sortable"><caption>Tables without PK or UKs</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Table<span class="tooltiptext">Table</span></th>';
+select '<th scope="col" class="tac tooltip">Engine<span class="tooltiptext">Engine</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',concat(tables.table_schema,'.',tables.table_name), '<td>',tables.engine 
   FROM information_schema.tables 
   LEFT JOIN (SELECT table_schema, table_name 
@@ -1232,12 +1421,14 @@ SELECT '<tr><td>',concat(tables.table_schema,'.',tables.table_name), '<td>',tabl
               GROUP BY table_schema, table_name, index_name
              HAVING SUM(case when non_unique = 0 and nullable != 'YES' then 1 else 0 end) = count(*) ) puks 
          ON tables.table_schema = puks.table_schema and tables.table_name = puks.table_name 
- WHERE puks.table_name is null 
-   AND tables.table_type = 'BASE TABLE' AND Engine="InnoDB";
-select '</table><p>' ;
+ WHERE puks.table_name is null ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Forbidden/limited/dangerous statements used</b></td></tr>' ;
-select '<tr><td><b>Statement</b>', '<td><b>Count</b>', '<td><b>Errors</b>';
+select '<p><table class="bordered sortable"><caption>Forbidden/limited/dangerous statements used</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Statement<span class="tooltiptext">Statement</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th>';
+select '<th scope="col" class="tac tooltip">Errors<span class="tooltiptext">Errors</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',event_name, '<td>',count_star, '<td>',sum_errors 
   FROM performance_schema.events_statements_summary_global_by_event_name 
  WHERE event_name  like '%savepoint%'
@@ -1246,43 +1437,45 @@ SELECT '<tr><td>',event_name, '<td>',count_star, '<td>',sum_errors
 SELECT '<tr><td>',event_name, '<td>',count_star, '<td>',sum_errors 
   FROM performance_schema.events_statements_summary_global_by_event_name 
  WHERE event_name  REGEXP '.*sql/(create|drop|alter).*' 
-   AND event_name NOT REGEXP '.*user'
-   AND count_star>0;
-select '</table><p>' ;
+   AND event_name NOT REGEXP '.*user';
+select '</tbody></table><p>' ;
 select '</pre><p><hr>' ;
 
-select '<P><A NAME="stor"></A>' ;
-select '<P><table border="2"><tr><td><b>Stored Routines</b></td></tr>' ;
-select '<tr><td><b>Schema</b>',
- '<td><b>Type</b>',
- '<td><b>Objects</b>'
-;
+select '<p><a id="stor"></a>' ;
+select '<p><table class="bordered sortable"><caption>Stored Routines</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th>';
+select '<th scope="col" class="tac tooltip">Objects<span class="tooltiptext">Objects</span></th>';
+select '</thead><tbody>';
  select '<tr><td>',routine_schema, 
   '<td>', routine_type, 
   '<td>', count(*)
  from routines
  group by routine_schema, routine_type;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><A NAME="dtype"></A>' ;
-select '<P><table border="2"><tr><td><b>Data types</b></td></tr>' ;
-select '<tr><td><b>Schema</b>',
- '<td><b>Data Type</b>',
- '<td><b>Count(*)</b>';
+select '<p><a id="\1"></a>' ;
+select '<p><a id="dtype"></a>' ;
+select '<p><table class="bordered sortable"><caption>Data types</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Data Type<span class="tooltiptext">Data Type</span></th>';
+select '<th scope="col" class="tac tooltip">Count(*)<span class="tooltiptext">Count(*)</span></th>';
+select '</thead><tbody>';
  select '<tr><td>',table_schema, 
   '<td>', data_type, 
   '<td>', count(*)
  from columns
  where table_schema not in ('mysql', 'performance_schema', 'information_schema', 'sys')
- group by table_schema, data_type
- order by table_schema, data_type;
-select '</table><p>' ;
+ group by table_schema, data_type;
+select '</tbody></table><p>' ;
 
-select '<P><A NAME="reskey"></A>' ;
-select '<P><table border="2"><tr><td><b>Reserved Keywords Usage</b></td></tr>' ;
-select '<tr><td><b>Schema</b>',
- '<td><b>Table</b>',
- '<td><b>Column</b>';
+select '<p><a id="\1"></a>' ;
+select '<p><a id="reskey"></a>' ;
+select '<p><table class="bordered sortable"><caption>Reserved Keywords Usage</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">Table<span class="tooltiptext">Table</span></th>';
+select '<th scope="col" class="tac tooltip">Column<span class="tooltiptext">Column</span></th>';
+select '</thead><tbody>';
 
 select '<tr><td>',TABLE_SCHEMA, '<td>',TABLE_NAME, '<td> '
   from information_schema.columns
@@ -1295,26 +1488,23 @@ select '<tr><td>',TABLE_SCHEMA, '<td>',TABLE_NAME, '<td>',COLUMN_NAME
   from information_schema.columns
  where column_name in (
 'ACCESSIBLE', 'ADD', 'ALL', 'ALTER', 'ANALYZE', 'AND', 'AS', 'ASC', 'ASENSITIVE', 'BEFORE', 'BETWEEN', 'BIGINT', 'BINARY', 'BLOB', 'BOTH', 'BY', 'CALL', 'CASCADE', 'CASE', 'CHANGE', 'CHAR', 'CHARACTER', 'CHECK', 'COLLATE', 'COLUMN', 'CONDITION', 'CONSTRAINT', 'CONTINUE', 'CONVERT', 'CREATE', 'CROSS', 'CUBE', 'CUME_DIST', 'CURRENT_DATE', 'CURRENT_TIME', 'CURRENT_TIMESTAMP', 'CURRENT_USER', 'CURSOR', 'DATABASE', 'DATABASES', 'DAY_HOUR', 'DAY_MICROSECOND', 'DAY_MINUTE', 'DAY_SECOND', 'DEC', 'DECIMAL', 'DECLARE', 'DEFAULT', 'DELAYED', 'DELETE', 'DENSE_RANK', 'DESC', 'DESCRIBE', 'DETERMINISTIC', 'DISTINCT', 'DISTINCTROW', 'DIV', 'DOUBLE', 'DROP', 'DUAL', 'EACH', 'ELSE', 'ELSEIF', 'EMPTY', 'ENCLOSED', 'ESCAPED', 'EXCEPT', 'EXISTS', 'EXIT', 'EXPLAIN', 'FALSE', 'FETCH', 'FIRST_VALUE', 'FLOAT', 'FLOAT4', 'FLOAT8', 'FOR', 'FORCE', 'FOREIGN', 'FROM', 'FULLTEXT', 'FUNCTION', 'GENERATED', 'GET', 'GRANT', 'GROUP', 'GROUPING', 'GROUPS', 'HAVING', 'HIGH_PRIORITY', 'HOUR_MICROSECOND', 'HOUR_MINUTE', 'HOUR_SECOND', 'IF', 'IGNORE', 'IN', 'INDEX', 'INFILE', 'INNER', 'INOUT', 'INSENSITIVE', 'INSERT', 'INT', 'INT1', 'INT2', 'INT3', 'INT4', 'INT8', 'INTEGER', 'INTERSECT', 'INTERVAL', 'INTO', 'IO_AFTER_GTIDS', 'IO_BEFORE_GTIDS', 'IS', 'ITERATE', 'JOIN', 'JSON_TABLE', 'KEY', 'KEYS', 'KILL', 'LAG', 'LAST_VALUE', 'LATERAL', 'LEAD', 'LEADING', 'LEAVE', 'LEFT', 'LIKE', 'LIMIT', 'LINEAR', 'LINES', 'LOAD', 'LOCALTIME', 'LOCALTIMESTAMP', 'LOCK', 'LONG', 'LONGBLOB', 'LONGTEXT', 'LOOP', 'LOW_PRIORITY', 'MASTER_BIND', 'MASTER_SSL_VERIFY_SERVER_CERT', 'MATCH', 'MAXVALUE', 'MEDIUMBLOB', 'MEDIUMINT', 'MEDIUMTEXT', 'MIDDLEINT', 'MINUTE_MICROSECOND', 'MINUTE_SECOND', 'MOD', 'MODIFIES', 'NATURAL', 'NOT', 'NO_WRITE_TO_BINLOG', 'NTH_VALUE', 'NTILE', 'NULL', 'NUMERIC', 'OF', 'ON', 'OPTIMIZE', 'OPTIMIZER_COSTS', 'OPTION', 'OPTIONALLY', 'OR', 'ORDER', 'OUT', 'OUTER', 'OUTFILE', 'OVER', 'PARTITION', 'PERCENT_RANK', 'PRECISION', 'PRIMARY', 'PROCEDURE', 'PURGE', 'RANGE', 'RANK', 'READ', 'READS', 'READ_WRITE', 'REAL', 'RECURSIVE', 'REFERENCES', 'REGEXP', 'RELEASE', 'RENAME', 'REPEAT', 'REPLACE', 'REQUIRE', 'RESIGNAL', 'RESTRICT', 'RETURN', 'REVOKE', 'RIGHT', 'RLIKE', 'ROW', 'ROWS', 'ROW_NUMBER', 'SCHEMA', 'SCHEMAS', 'SECOND_MICROSECOND', 'SELECT', 'SENSITIVE', 'SEPARATOR', 'SET', 'SHOW', 'SIGNAL', 'SMALLINT', 'SPATIAL', 'SPECIFIC', 'SQL', 'SQLEXCEPTION', 'SQLSTATE', 'SQLWARNING', 'SQL_BIG_RESULT', 'SQL_CALC_FOUND_ROWS', 'SQL_SMALL_RESULT', 'SSL', 'STARTING', 'STORED', 'STRAIGHT_JOIN', 'SYSTEM', 'TABLE', 'TERMINATED', 'THEN', 'TINYBLOB', 'TINYINT', 'TINYTEXT', 'TO', 'TRAILING', 'TRIGGER', 'TRUE', 'UNDO', 'UNION', 'UNIQUE', 'UNLOCK', 'UNSIGNED', 'UPDATE', 'USAGE', 'USE', 'USING', 'UTC_DATE', 'UTC_TIME', 'UTC_TIMESTAMP', 'VALUES', 'VARBINARY', 'VARCHAR', 'VARCHARACTER', 'VARYING', 'VIRTUAL', 'WHEN', 'WHERE', 'WHILE', 'WINDOW', 'WITH', 'WRITE', 'XOR', 'YEAR_MONTH', 'ZEROFILL',  
-'NONBLOCKING' )
- order by TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME;
-select '</table><p><hr>' ;
+'NONBLOCKING' );
+ select '</tbody></table><p><hr>' ;
 
-
-
-
-select '<P><A NAME="sche"></A>' ;
-select '<P><table border="2"><tr><td><b>Scheduler</b></td></tr>' ;
+select '<p><a id="sche"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Scheduler</b></td></tr>' ;
 select '<tr><td>', variable_value
 from performance_schema.global_variables
 where variable_name='EVENT_SCHEDULER';
 select '</table><p>' ;
 
-select '<P><table border="2"><tr><td><b>Scheduled Jobs</b></td></tr>' ;
-select '<tr><td><b>Event</b>',
-  '<td><b>Status</b>',
-  '<td><b>Type</b>',
-  '<td><b>Schedule</b>',
-  '<td><b>Command</b>';
+select '<p><table class="bordered sortable"><caption>Scheduled Jobs</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Event<span class="tooltiptext">Event</span></th>';
+select '<th scope="col" class="tac tooltip">Status<span class="tooltiptext">Status</span></th>';
+select '<th scope="col" class="tac tooltip">Type<span class="tooltiptext">Type</span></th>';
+select '<th scope="col" class="tac tooltip">Schedule<span class="tooltiptext">Schedule</span></th>';
+select '<th scope="col" class="tac tooltip">Command<span class="tooltiptext">Command</span></th>';
+select '</thead><tbody>';
  select '<tr><td>',concat(event_schema,'.',event_name), 
   '<td>', status,
   '<td>', event_type,
@@ -1322,20 +1512,27 @@ select '<tr><td><b>Event</b>',
 	ifnull(interval_value,''),ifnull(interval_field,''),
   '<td>', event_definition
   from events;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="nls"></A>' ;
-select '<P><table border="2"><tr><td><b>NLS</b></td></tr>';
-select '<tr><td><b>Schema</b>','<td><b>DEFAULT CHARACTER_SET_NAME</b>','<td><b>DEFAULT COLLATION_NAME</b>';
+select '<p><a id="\1"></a>' ;
+select '<p><a id="nls"></a>' ;
+select '<p><table class="bordered sortable"><caption>NLS</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">DEFAULT CHARACTER_SET_NAME<span class="tooltiptext">DEFAULT CHARACTER_SET_NAME</span></th>';
+select '<th scope="col" class="tac tooltip">DEFAULT COLLATION_NAME<span class="tooltiptext">DEFAULT COLLATION_NAME</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',schema_name, '<td>', DEFAULT_CHARACTER_SET_NAME, '<td>', DEFAULT_COLLATION_NAME
   FROM information_schema.SCHEMATA
  where schema_name not in ('mysql', 'information_schema', 'sys', 'performance_schema', 'test', 'tmpdir')
-   and schema_name not like '%lost+found'
- order by schema_name;
-select '</table><p>' ;
+   and schema_name not like '%lost+found';
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>NLS: Columns</b></td></tr>';
-select '<tr><td><b>Schema</b>','<td><b>CHARACTER_SET_NAME</b>','<td><b>COLLATION_NAME</b>','<td><b>Count</b>';
+select '<p><table class="bordered sortable"><caption>NLS: Columns</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Schema<span class="tooltiptext">Schema</span></th>';
+select '<th scope="col" class="tac tooltip">CHARACTER_SET_NAME<span class="tooltiptext">CHARACTER_SET_NAME</span></th>';
+select '<th scope="col" class="tac tooltip">COLLATION_NAME<span class="tooltiptext">COLLATION_NAME</span></th>';
+select '<th scope="col" class="tac tooltip">Count<span class="tooltiptext">Count</span></th>';
+select '</thead><tbody>';
 SELECT '<tr><td>',table_schema, '<td>', CHARACTER_SET_NAME, '<td>', COLLATION_NAME, '<td>', count(*)
   FROM information_schema.COLUMNS
  where table_schema not in ('mysql', 'information_schema', 'sys', 'performance_schema', 'test')
@@ -1347,9 +1544,9 @@ SELECT '<tr><td>', 'TOTAL', '<td>', CHARACTER_SET_NAME, '<td>', COLLATION_NAME, 
  where table_schema not in ('mysql', 'information_schema', 'sys', 'performance_schema', 'test')
    and CHARACTER_SET_NAME is not null
  group by CHARACTER_SET_NAME , COLLATION_NAME;
-select '</table><p>' ;
+select '</tbody></table><p>' ;
 
-select '<P><table border="2"><tr><td><b>NLS: Parameters</b></td></tr>';
+select '<p><table class="bordered"><tr><td><b>NLS: Parameters</b></td></tr>';
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>' ;
 select '<tr><td>', variable_name, '<td>', replace(variable_value,',',', ')
@@ -1358,8 +1555,8 @@ select '<tr><td>', variable_name, '<td>', replace(variable_value,',',', ')
  order by variable_name;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="par"></A>' ;
-select '<P><table border="2"><tr><td><b>MySQL Parameters</b></td></tr>';
+select '<p><a name="par"></a>' ;
+select '<p><table class="bordered"><tr><td><b>MySQL Parameters</b></td></tr>';
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>' ;
 select '<tr><td>', variable_name, '<td>', replace(variable_value,',',', ')
@@ -1368,8 +1565,7 @@ select '<tr><td>', variable_name, '<td>', replace(variable_value,',',', ')
  order by variable_name;
 select '</table><p><hr>' ;
 
-
-select '<P><table border="2"><tr><td><b>Versions</b></td></tr>' ;
+select '<p><table class="bordered sortable"><caption>Versions</caption><tbody>' ;
 select '<tr><td>','MySQL:', variable_value
   from performance_schema.global_variables
  where variable_name ='version'
@@ -1380,20 +1576,23 @@ union select '<tr><td>',concat(variable_name, ': '), variable_value
  where variable_name like 'version%'
 union select '<tr><td>', 'SYS version:', sys_version
   from sys.version;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
 
-select '<P><A NAME="gstat"></A>' ;
-select '<P><table border="2"><tr><td><b>MySQL Global Status</b></td></tr>';
-select '<tr><td><b>Statistic</b>',
- '<td><b>Value</b>' ;
+select '<p><a id="gstat"></a>' ;
+select '<p><table class="bordered sortable"><caption>MySQL Global Status</caption><thead><tr>' ;
+select '<th scope="col" class="tac tooltip">Statistic<span class="tooltiptext">Statistic</span></th>';
+select '<th scope="col" class="tac tooltip">Value<span class="tooltiptext">Value</span></th>';
+select '</thead><tbody>';
 select '<tr><td>', variable_name, '<td>', variable_value
   from performance_schema.global_status
  order by variable_name;
-select '</table><p><hr>' ;
+select '</tbody></table><p><hr>' ;
+select '<div><a href="#top" class="back-to-top">⬆ Back to index</a></div>' as info;
 
-select '<hr><P>Statistics generated on: ', now();
+select '<hr><p>Statistics generated on: ', now();
 select '<br>More info on';
-select '<A HREF="https://www.meo.bogliolo.name/#my">this site</A>' as info;
+select '<a href="https://www.meo.bogliolo.name/#my">this site</a>' as info;
 select '<br> Copyright: 2025 meob - License: GNU General Public License v3.0' as info;
 select '<br> Sources: https://github.com/meob/db2html/ <p>' as info;
+select '<script src="util.js"></script>' ;
 select '</body></html>' as info;

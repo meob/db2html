@@ -1,7 +1,7 @@
 -- Program:	 mariadb2html.sql
 --		 MariaDB DBA Database SQL report in HTML
 -- Date:         2015-01-01
--- Version:      1.0.23: latest releases (2025-01-01)
+-- Version:      1.0.24: latest releases (2025-10-31), new CSS file
 -- Author:       Bartolomeo Bogliolo mail@meo.bogliolo.name
 -- License:      GPL
 --
@@ -17,46 +17,46 @@
 
 use information_schema;
 
-select '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><link rel="stylesheet" href="ux3.css" /> <title>';
+select '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><link rel="stylesheet" href="style.css" /> <title>';
 select @@hostname, ':', @@port, '-';
-select 'my2html MariaDB (10.3+) Statistics</title></head><body>';
+select ' MariaDB Statistics - my2html </title></head><body>';
 
 select '<h1>MariaDB Database</h1>';
 
-select '<P><A NAME="top"></A>' ;
+select '<P><a name="top"></a>' ;
 select '<p>Table of contents:' ;
 select '<table><tr><td><ul>' ;
-select '<li><A HREF="#status">Summary Status</A></li>' ;
-select '<li><A HREF="#ver">Versions</A></li>' ;
-select '<li><A HREF="#eng">Engines</A></li>' ;
-select '<li><A HREF="#obj">Schema/Object Matrix</A></li>' ;
-select '<li><A HREF="#tbs">Space Usage</A></li>' ;
-select '<li><A HREF="#sga">Tuning Parameters</A> </li>' ;
-select '<li><A HREF="#part">Partitioning</A></li>' ;
-select '<li><A HREF="#usr">Users</A>' ;
-select '   (<A HREF="#usr_sec">Security</A>)' ;
-select '<li><A HREF="#prc">Processes</A></li>' ;
-select '<li><A HREF="#run">Running SQL</A> </li>' ;
-select '<li><A HREF="#lock">Table Locks</A> </li>' ;
+select '<li><a href="#status">Summary Status</a></li>' ;
+select '<li><a href="#ver">Versions</a></li>' ;
+select '<li><a href="#eng">Engines</a></li>' ;
+select '<li><a href="#obj">Schema/Object Matrix</a></li>' ;
+select '<li><a href="#tbs">Space Usage</a></li>' ;
+select '<li><a href="#sga">Tuning Parameters</a> </li>' ;
+select '<li><a href="#part">Partitioning</a></li>' ;
+select '<li><a href="#usr">Users</a>' ;
+select '   (<a href="#usr_sec">Security</a>)' ;
+select '<li><a href="#prc">Processes</a></li>' ;
+select '<li><a href="#run">Running SQL</a> </li>' ;
+select '<li><a href="#lock">Table Locks</a> </li>' ;
 select '</ul><td><ul>' ;
-select '<li><A HREF="#stat_innodb">InnoDB Statistics</A> </li>' ;
-select '<li><A HREF="#stat">Performance Statistics</A> (<A HREF="#stat56">Details</A>)</li>' ;
-select '<li><A HREF="#big">Biggest Objects</A></li>' ;
-select '<li><A HREF="#hostc">Host Statistics</A></li>' ;
-select '<li><A HREF="#repl">Replication</A></li>' ;
-select '<li><A HREF="#stor">Stored Routines</A></li>' ;
-select '<li><A HREF="#sche">Scheduled Jobs</A> </li>' ;
-select '<li><A HREF="#nls">NLS</A> </li>' ;
-select '<li><A HREF="#par">Configuration Parameters</A></li>' ;
-select '<li><A HREF="#gstat">Global Status</A></li>' ;
+select '<li><a href="#stat_innodb">InnoDB Statistics</a> </li>' ;
+select '<li><a href="#stat">Performance Statistics</a> (<a href="#stat56">Details</a>)</li>' ;
+select '<li><a href="#big">Biggest Objects</a></li>' ;
+select '<li><a href="#hostc">Host Statistics</a></li>' ;
+select '<li><a href="#repl">Replication</a></li>' ;
+select '<li><a href="#stor">Stored Routines</a></li>' ;
+select '<li><a href="#sche">Scheduled Jobs</a> </li>' ;
+select '<li><a href="#nls">NLS</a> </li>' ;
+select '<li><a href="#par">Configuration Parameters</a></li>' ;
+select '<li><a href="#gstat">Global Status</a></li>' ;
 select '</ul></table><p><hr>' ;
  
 select '<P>Statistics generated on: ', now();
 select ' by: ', user(), 'as: ',current_user();
  
-select 'using: <I><b>mariadb2html.sql</b> v.1.0.23';
+select 'using: <I><b>mariadb2html.sql</b> v.1.0.24';
 
-select '<hr><P><A NAME="status"></A>';
+select '<hr><P><a name="status"></a>';
 select '<P><table border="2"><tr><td><b>Summary</b></td></tr>';
 select '<tr><td><b>Item</b>', '<td><b>Value</b>';
 
@@ -126,32 +126,23 @@ select '<tr><td>Port :', '<td>', variable_value
 select '</table><p><hr>' ;
 
 
-select '<P><A NAME="ver"></A>';
+select '<P><a name="ver"></a>';
 select '<P><table border="2"><tr><td><b>Version check</b></td></tr>' ;
 select '<tr><td><b>Version</b>',
- '<td><b> Supported</b>',
- '<td><b> Last releases (N or LTS)</b>',
- '<td><b> Last updates (N or N-1)</b>',
- '<td><b> Last update (N) </b>',
+ '<td><b> Supported LTS</b>',
  '<td><b> Notes</b>';
 select '<tr><td>', version();
-select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.0', '10.11','10.10','10.9','10.8','10.7','10.6','10.5','10.4'), 'YES', 'NO') ; -- supported version BOTH MySQL MariaDB
-select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.0', '10.11','10.6'), 'YES', 'NO') ; -- last releases or LTS
+select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('11.8','11.4','10.11','10.6'), 'YES', 'NO') ; 
 
-select ' <td>', if(SUBSTRING_INDEX(version(),'-',1)
-    in ('10.11.2','10.10.3','10.9.5','10.8.7','10.7.8','10.6.12','10.5.19','10.4.28','10.3.38',
-                  '10.10.2','10.9.4','10.8.6','10.7.7','10.6.11','10.5.18','10.4.27','10.3.37',
-        '10.11.3','10.10.4','10.9.6','10.8.8','10.7.9','10.6.13','10.5.20','10.4.29','10.3.39'), 'YES', 'NO') ; -- last2 MariaDB updates (and the next)
-select ' <td>', if(SUBSTRING_INDEX(version(),'-',1)
-    in ('10.11.2','10.10.3','10.9.5','10.8.7','10.7.8','10.6.12','10.5.19','10.4.28','10.3.38',
-        '10.11.3','10.10.4','10.9.6','10.8.8','10.7.9','10.6.13','10.5.20','10.4.29','10.3.39'), 'YES', 'NO') ;  -- last updates (and the next)
-
-select '<td>Latest Releases: <b>8.4.3</b>, <b>8.0.40</b>; 8.3.0,  8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
-select ' <br>Latest Releases (MariaDB): 11.6.2, 11.5.2, <b>11.4.4</b>, 11.3.2, 11.2.3, 11.1.6, 11.0.6, <b>10.11.10</b>, <b>10.6.20</b>, 10.5.27;';
-select '<br>&nbsp; 10.10.7, 10.9.8, 10.8.8, 10.7.8, 10.4.33, 10.3.39, 10.2.44, 10.1.48, 10.0.38, 5.5.68';
+select '<td>Latest Releases (MySQL): 9.4.0, <b>8.4.6</b>, <b>8.0.43</b>;';
+select '      9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
+select ' <br>Latest Releases (MariaDB): 12.0, <b>11.8.3</b>, 11.7.2, 11.6.2, 11.5.2, <b>11.4.8</b>, 11.3.2, 11.2.6, ';
+select '     11.1.6, 11.0.6, <b>10.11.14</b>, 10.10.7, <b>10.6.22</b>, 10.5.28, 10.4.34;';
+select '     10.9.8, 10.8.8, 10.7.8, 10.3.39, 10.2.44, 10.1.48, 10.0.38, 5.5.68';
+select ' <br>Latest Releases (Aurora): 3.08.1-8.0.39, <b>3.05.2-8.0.32</b> (def.), 2.12.4-5.7.44, 1.23.4-5.6 ';
 select '</table><p><hr>' ;
 
-select '<P><A NAME="eng"></A>' ;
+select '<P><a name="eng"></a>' ;
 select '<P><table border="2"><tr><td><b>Engines</b></td></tr>';
 select '<tr><td><b>Engine</b>',
  '<td><b> Support</b>',
@@ -163,7 +154,7 @@ from engines
 order by support;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="obj"></A>' ;
+select '<P><a name="obj"></a>' ;
 select '<P><table border="2"><tr><td><b>Schema/Object Matrix</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b> Tables</b>',
@@ -242,7 +233,7 @@ select '<tr><td>', TABLE_ID,
  limit 100;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="tbs"></A>' ;
+select '<P><a name="tbs"></a>' ;
 select '<P><table border="2"><tr><td><b>Space Usage</b></td></tr>' ;
 select '<tr><td><b>Database',
  '<td><b>Row#</b>',
@@ -276,7 +267,7 @@ from tables
 group by table_schema with rollup;
 select '</table><p>' ;
 
-select '<P><A NAME="tbs_os"></A>' ;
+select '<P><a name="tbs_os"></a>' ;
 select '<P><table border="2"><tr><td><b>InnoDB Tablespace OS Space Usage</b></td></tr>' ;
 select '<tr><td><b>Database',
  '<td><b>OS size</b>';
@@ -309,7 +300,7 @@ select '<tr><td>', engine,
       limit 8;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="sga"></A>' ;
+select '<P><a name="sga"></a>' ;
 select '<P><table border="2"><tr><td><b>MySQL Memory Usage</b>';
 select '<tr><td><b>Type</b>',
  '<td><b>Value (MB)</b>' ;
@@ -392,7 +383,7 @@ where lower(variable_name) in (
 order by variable_name;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="part"></A>' ;
+select '<P><a name="part"></a>' ;
 select '<P><table border="2"><tr><td><b>Partitioning</b></td></tr>';
 select '<tr><td><b>Schema</b>',
  '<td><b>Partitioned Tables</b>',
@@ -422,7 +413,7 @@ group by table_schema, table_name, subpartition_name
 order by table_schema, table_name, subpartition_name;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="usr"></A>';
+select '<P><a name="usr"></a>';
 select '<P><table border="2"><tr><td><b>Users</b></td></tr>' ;
 select '<tr><td><b>Host</b>',
  '<td><b>DB</b>',
@@ -576,7 +567,7 @@ FROM mysql.user
 WHERE user in ('hanako', 'kisadminnew1', '401hk$', 'guest', 'Huazhongdiguo110');
 select '</table><p>' ;
 
-select '<P><a id="secsql"></A>' ;
+select '<P><a id="secsql"></a>' ;
 select '<P><table border="2"><tr><td><b>Suspect SQL Statements</b></td></tr>' ;
 select '<tr><td><b>Schema</b>',
  '<td><b>Statement</b>',
@@ -591,7 +582,7 @@ select '<tr><td>',SCHEMA_NAME,'<td>', DIGEST_TEXT, '<td>', COUNT_STAR  -- FIRST_
  limit 20';
 select '</table><p>' ;
 
-select '<P><a id="sectab"></A>' ;
+select '<P><a id="sectab"></a>' ;
 select '<P><table border="2"><tr><td><b>Spammable tables</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Object</b>',
@@ -610,7 +601,7 @@ and table_rows > 1000
 order by table_rows desc;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="prc"></A>' ;
+select '<P><a name="prc"></a>' ;
 select '<P><table><tr><td><table border="2"><tr><td><b>Per-User Processes</b></td></tr>' ;
 select '<tr><td><b>User</b><td><b>Count</b>';
 select '<tr><td>', user,
@@ -663,7 +654,7 @@ from processlist
 order by id;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="run"></A>' ;
+select '<P><a name="run"></a>' ;
 select '<P><table border="2"><tr><td><b>Running SQL</b></td></tr>' ;
 select '<tr><td><b>Id</b><td><b>User</b><td><b>Time</b>';
 select '<td><b>State</b><td><b>Info</b>';
@@ -678,13 +669,13 @@ where command <> 'Sleep'
 order by id;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="lock"></A>' ;
+select '<P><a name="lock"></a>' ;
 select '<P><table border="2" width="75%">' ;
 select '<tr><td><pre><b>Table Locks</b>' ;
 show open tables WHERE In_use > 0;
 select '</pre><p></table><hr>' ;
 
-select '<P><A NAME="stat_innodb"></A>' ;
+select '<P><a name="stat_innodb"></a>' ;
 select '<P><table border="2"><tr><td><b>InnoDB Statistics</b></table>' ;
 
 select '<P><table border="2"><tr><td><b>Transactions</b></td></tr>' ;
@@ -695,7 +686,7 @@ select '<tr><td>',trx_mysql_thread_id, '<td>',trx_id, '<td>',trx_state, '<td>',t
  from INFORMATION_SCHEMA.innodb_trx;
 select '</table>' ;
 
-select '<P><A NAME="innodb_lock"></A>' ;
+select '<P><a name="innodb_lock"></a>' ;
 select '<P><table border="2"><tr><td><b>Waiting Locks</b></td></tr>' ;
 select '<tr><td><b>TRX Id</b><td><b>Lock Id</b><td><b>Blocking TRX</b><td><b>Blocking Lock</b>';
 select '<tr><td>',requesting_trx_id, '<td>',requested_lock_id, '<td>',blocking_trx_id, '<td>',blocking_lock_id
@@ -728,7 +719,7 @@ SELECT '<tr><td>',if(SPACE=0,'System','FilePerTable') TBS,'<td>', ROW_FORMAT,'<t
  group by ROW_FORMAT, if(SPACE=0,'System','FilePerTable');
 select '</table><p><hr>' ;
 
-select '<P><A NAME="stat"></A>' ;
+select '<P><a name="stat"></a>' ;
 select '<P><table border="2"><tr><td><b>Performance Statistics Summary</b></td></tr>' ;
 select '<tr><td><b>Statistic</b><td><b>Value</b><td><b>Suggested value</b><td><b>Action to correct</b>';
 select '<tr><!01><td>', variable_name, ' (days)<td align=right>', round(variable_value/(3600*24),1), '', ''
@@ -880,7 +871,7 @@ where g1.variable_name='INNODB_OS_LOG_WRITTEN'
 order by 1;
 select '</table><p>' ;
 
-select '<P><A NAME="stat56"></A>' ;
+select '<P><a name="stat56"></a>' ;
 select '<P><table border="2"><tr><td><b>Performance Schema Statistics</b></td></tr>' ;
 select '</table><p>';
 
@@ -985,7 +976,7 @@ select '<tr><td>',SCHEMA_NAME,'<td>',DIGEST_TEXT,'<td align="right">',COUNT_STAR
   from performance_schema.events_statements_summary_by_digest order by AVG_TIMER_WAIT desc limit 5;
 select '</table><p><hr>';
 
-select '<P><A NAME="big"></A>' ;
+select '<P><a name="big"></a>' ;
 select '<P><table border="2"><tr><td><b>Biggest Objects</b></td></tr>' ;
 select '<tr><td><b>Database</b>',
  '<td><b>Object</b>',
@@ -1003,7 +994,7 @@ order by data_length+index_length desc
 limit 20;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="hostc"></A>' ;
+select '<P><a name="hostc"></a>' ;
 select '<P><table border="2"><tr><td><b>Host Connections</b></td></tr>' ;
 select '<tr><td><b>Host</b>',
  '<td><b>Current Connections</b>',
@@ -1040,7 +1031,7 @@ select '</table><p>' ;
 select '<P><table border="2"><tr><td><b>Max Connect Errors</b><td>&nbsp;', @@global.max_connect_errors;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="repl"></A>' ;
+select '<P><a name="repl"></a>' ;
 select '<P><table border="2"><tr><td><b>Replication</b></td></tr>' ;
 select '<tr><td><pre><b>Master</b>' ;
 show master status;
@@ -1056,7 +1047,7 @@ select '</pre><tr><td><pre><b>Galera Cluster</b>' ;
 show status where variable_name in ('wsrep_cluster_size', 'wsrep_cluster_status', 'wsrep_flow_control_paused', 'wsrep_ready', 'wsrep_connected', 'wsrep_local_state_comment');
 select '</pre></table><p><hr>' ;
 
-select '<P><A NAME="stor"></A>' ;
+select '<P><a name="stor"></a>' ;
 select '<P><table border="2"><tr><td><b>Stored Routines</b></td></tr>' ;
 select '<tr><td><b>Schema</b>',
  '<td><b>Type</b>',
@@ -1069,7 +1060,7 @@ select '<tr><td><b>Schema</b>',
  group by routine_schema, routine_type;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="sche"></A>' ;
+select '<P><a name="sche"></a>' ;
 select '<P><table border="2"><tr><td><b>Scheduler</b></td></tr>' ;
 select '<tr><td>', variable_value
 from global_variables
@@ -1091,7 +1082,7 @@ select '<tr><td><b>Event</b>',
  from events;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="nls"></A>' ;
+select '<P><a name="nls"></a>' ;
 select '<P><table border="2"><tr><td><b>NLS</b></td></tr>';
 select '<tr><td><b>Schema</b>','<td><b>DEFAULT CHARACTER_SET_NAME</b>','<td><b>DEFAULT COLLATION_NAME</b>';
 SELECT '<tr><td>',schema_name, '<td>', DEFAULT_CHARACTER_SET_NAME, '<td>', DEFAULT_COLLATION_NAME
@@ -1124,7 +1115,7 @@ select '<tr><td>', variable_name, '<td>', replace(variable_value,',',', ')
  order by variable_name;
 select '</table><p><hr>' ;
 
-select '<P><A NAME="par"></A>' ;
+select '<P><a name="par"></a>' ;
 select '<P><table border="2"><tr><td><b>MySQL Parameters</b></td></tr>';
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>' ;
@@ -1147,7 +1138,7 @@ from information_schema.global_variables
 where variable_name like 'version%';
 select '</table><p><hr>' ;
 
-select '<P><A NAME="gstat"></A>' ;
+select '<P><a name="gstat"></a>' ;
 select '<P><table border="2"><tr><td><b>MySQL Global Status</b></td></tr>';
 select '<tr><td><b>Statistic</b>',
  '<td><b>Value</b>' ;
@@ -1155,10 +1146,12 @@ select '<tr><td>', variable_name, '<td>', variable_value
 from global_status
 order by variable_name;
 select '</table><p><hr>' ;
+select '<div><a href="#top" class="back-to-top">⬆ Back to index</a></div>' as info;
 
 select '<hr><P>Statistics generated on: ', now();
 select '<br>More info on';
-select '<A HREF="http://meoshome.it.eu.org#my">this site</A>' as info;
+select '<a href="http://meoshome.it.eu.org#my">this site</a>' as info;
+select '<script src="util.js"></script>' ;
 
 select '<br> Copyright: 2025 meob - License: GNU General Public License v3.0' as info;
 select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' as info;
