@@ -21,7 +21,7 @@ REM		 Check the acquired options before enabling the scripts.
 set heading off
 select '<a id="custMenu">Optional Plugins</a>:<br><ul>' from dual;
 select '<li><b><A HREF="#custO">DB Versions, Options and Appliances</a></b>: ' from dual;
- select ' <A HREF="#10g">10g</a>, <A HREF="#11g">11g</a>, <A HREF="#12c">12c</a>, <A HREF="#19c">19c</a>, <A HREF="#23c">23c</a>,' from dual;
+ select ' <A HREF="#12c">12c and before</a>, <A HREF="#19c">19c</a>, <A HREF="#23c">26ai</a>,' from dual;
  select ' <A HREF="#asm">ASM</a>, <A HREF="#rac">RAC</a>,'  from dual;
  select ' <A HREF="#dg">Data Guard</a>,' from dual;
  select ' <A HREF="#exa">Exadata</a>, ...' from dual;
