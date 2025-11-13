@@ -2,7 +2,7 @@
 -- Info:    PostgreSQL psql report in HTML
 --          Works with PostgreSQL 10 or sup. (tested and updated up to PG 18)
 -- Date:    2008-08-15
--- Version: 1.0.32a on 2025-10-31
+-- Version: 1.0.33a on 2025-11-13
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -28,7 +28,7 @@
 --          1.0.19 Both owner/schema in matrix, latest versions update
 --          1.0.20 Latest versions update, (a) May 2021 updates, (b) SCRAM encryption in passwords
 --          1.0.21 Latest versions update, fork for version PG13
---          1.0.22 Dynamic version: works for all PG supported releases (10+..PG14) and with details for created extensions; bigint casting
+--          1.0.22 Dynamic version: works for all PG supported releases (10+) with details for created extensions; bigint casting
 --          1.0.23 Latest versions update, (a) \if bug fixed (b) limit on the all index list (c,d,e,f) latest versions update
 --          1.0.24 WAL bytes in pg_stat_statements, users/roles, (a) pg_stat_wal_receiver, pg_replication_slots (b) pg_stat_statements_info
 --          1.0.25 Largest TOAST list, Stored Procedures count, Partitioning details, some graphical fixes, EnterpriseDB filter,
@@ -48,9 +48,10 @@
 --                 (b) Redundant indexes (c) preview features (d) as_admin variable for cloud administrators
 --          1.0.31 Latest versions update (a) bug fixing, PG18 full support
 --          1.0.32 Latest versions update; modernized HTML with sortable tables and better formatting;
---                 added QueryID where possible, operational and performance KPIs
+--                 added QueryID column where possible, added operational and performance KPIs
 --                 **NB** To take advantage of the new graphic features style.css and util.js files must be downloaded too.
 --                 (a) more KPIs
+--          1.0.33 Latest versions update; fixed EDB casting in KPIs. (a) small KPI fixes
 
 \set var_as_admin 1
 
@@ -97,7 +98,7 @@ select '</table><p><hr>' ;
 select '<p>Report generated on: '|| now();
 select 'on database: <strong>'||current_database()||'</strong>' ;
 select 'by user: '||user ;
-select 'using: <em><strong>pg2html.sql</strong> v.1.0.32a</em>' ;
+select 'using: <em><strong>pg2html.sql</strong> v.1.0.33a</em>' ;
  
 select '<hr><h2 id="status">Summary</h2>';
 select '<table class="bordered"><thead><tr><th scope="col">Item</th><th scope="col">Value</th></tr></thead><tbody>' ;
@@ -170,9 +171,6 @@ order by 2;
 select '</table><p><hr>' ;
 
 
-SELECT cast(current_setting('server_version_num')as integer)>= 110000 as version_11p
-\gset var_
-
 SELECT cast(current_setting('server_version_num')as integer)>= 120000 as version_12p
 \gset var_
 
@@ -194,6 +192,9 @@ SELECT cast(current_setting('server_version_num')as integer)>= 170000 as version
 SELECT cast(current_setting('server_version_num')as integer)>= 180000 as version_18p
 \gset var_
 
+SELECT cast(current_setting('server_version_num')as integer)>= 190000 as version_19p
+\gset var_
+
 select '<h2 id="ver">Version</h2>' ;
 select '<table class="bordered">' ;
 select '<tr><td>'||version()||'<td>'|| current_setting('server_version')||'<td>'|| current_setting('server_version_num');
@@ -207,23 +208,22 @@ select '<tr><th>Version</th>',
  '<th> Notes</th>';
 SELECT '<tr><td>'||substring(version() for  position('on' in version())-1);
 SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num') as integer)/100)
-  in (1300, 1400, 1500, 1600, 1700) THEN 'YES'
+  in (1400, 1500, 1600, 1700, 1800) THEN 'YES'
   ELSE 'NO' END;
 SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num')
   as integer)/100)
-  in (1500, 1600, 1700, 1800) THEN 'YES'
+  in (1600, 1700, 1800) THEN 'YES'
   ELSE 'NO' END; -- last2 release
 SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
-  in (90624,100023,110022,120022,
-  130021,130022,130023,
-  140018,140019,140020,
-  150013,150014,150015,
-  160009,160010,160011,
-  170005,170006,170007,
-  180000,180001,180002) THEN 'YES'
+  in (90624,100023,110022,120022, 130023,
+  140021,140019,140020,
+  150016,150014,150015,
+  160011,160009,160010,
+  170008,170006,170007,
+  180002,180000,180001) THEN 'YES'
   ELSE 'NO' END; -- last2 update
-select '<td>Latest Releases: 18.0, 17.6, 16.10, 15.14, 14.19, 13.22';
-select '    <br>Latest Unsupported: 12.22, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
+select '<td>Latest Releases: 18.1, 17.7, 16.10, 15.15, 14.20';
+select '    <br>Latest Unsupported: 13.23, 12.22, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
 select '    8.4.21, 8.3.23, 8.2.23, 8.1.23, 8.0.26; 7.4.30, 6.5.3';
 select '</table><p><hr>';
 
@@ -1315,6 +1315,38 @@ where datname not like 'template%';
 select '</table><p>' ;
 
 select '<table class="bordered"><caption>BG Writer statistics</caption>' ;
+\if :var_version_17p
+select '<tr><th> buffers_clean </th>',
+ '<th> maxwritten_clean </th>',
+ '<th> buffers_alloc </th>',
+ '<th> Statistics reset </th>';
+select '<tr><td class="align-right">'|| buffers_clean, 
+	'<td class="align-right">'|| maxwritten_clean, 
+	'<td class="align-right">'|| buffers_alloc,
+	'<td>'|| stats_reset
+ from pg_stat_bgwriter;
+select '</table><p>' ;
+
+select '<table class="bordered"><caption>Checkpoint statistics</caption>' ;
+select '<tr><th> Timed checkpoints </th>',
+ '<th> Requested checkpoints </th>',
+ '<th> Timed restartpoints </th>',
+ '<th> Requested restartpoints </th>',
+ '<th> Done restartpoints </th>',
+ '<th> Write time </th>',
+ '<th> Sync time </th>',
+ '<th> Statistics reset </th>';
+select '<tr>',
+	'<td class="align-right">'|| num_timed, 
+	'<td class="align-right">'|| num_requested, 
+	'<td class="align-right">'|| restartpoints_timed, 
+	'<td class="align-right">'|| restartpoints_req, 
+	'<td class="align-right">'|| restartpoints_done, 
+	'<td class="align-right">'|| write_time, 
+	'<td class="align-right">'|| sync_time, 
+	'<td>'|| stats_reset
+ from pg_stat_checkpointer;
+\else
 select '<tr><th>checkpoints_timed</th>',
  '<th> checkpoints_req </th>',
  '<th> buffers_checkpoint </th>',
@@ -1336,15 +1368,25 @@ select '<tr><td class="align-right">'||checkpoints_timed,
 	'<td class="align-right">'|| round(checkpoint_sync_time/1000),
 	'<td>'|| stats_reset
  from pg_stat_bgwriter;
+\endif
 select '</table><p>' ;
 
 select '<table class="bordered"><caption>Checkpointer/BGWriter KPI</caption><thead><tr><th scope="col">Timed CP Ratio%</th><th scope="col">Minutes between CP</th><th scope="col">Clean by CP Ratio%</th><th scope="col">Clean by BGW Ratio%</th><th scope="col">BGW Halt Ratio%</th></tr></thead><tbody>' ;
+\if :var_version_17p
+select '<tr><td class="align-right">'||round(100.0*num_timed/nullif(num_requested+num_timed,0),2),
+       '<td class="align-right">'||round((extract('epoch' from now() - c.stats_reset)/60)::numeric/nullif(num_requested+num_timed,0),2),
+       '<td class="align-right">'||round(100.0*buffers_written/nullif(buffers_written + buffers_clean,0),2),
+       '<td class="align-right">'||round(100.0*buffers_clean/nullif(buffers_written + buffers_clean,0),2),
+       '<td class="align-right">'||coalesce(round(100.0*maxwritten_clean/nullif(buffers_clean,0),4),0)
+ from pg_stat_bgwriter b, pg_stat_checkpointer c;
+\else
 select '<tr><td class="align-right">'||round(100.0*checkpoints_timed/nullif(checkpoints_req+checkpoints_timed,0),2),
        '<td class="align-right">'||round((extract('epoch' from now() - stats_reset)/60)::numeric/nullif(checkpoints_req+checkpoints_timed,0),2),
        '<td class="align-right">'||round(100.0*buffers_checkpoint/nullif(buffers_checkpoint + buffers_clean + buffers_backend,0),2),
        '<td class="align-right">'||round(100.0*buffers_clean/nullif(buffers_checkpoint + buffers_clean + buffers_backend,0),2),
        '<td class="align-right">'||coalesce(round(100.0*maxwritten_clean/nullif(buffers_clean,0),4),0)
  from pg_stat_bgwriter;
+\endif
 select '</tbody></table><p>' ;
 
 select '<table class="bordered"><caption>Cache statistics</caption><thead><tr><th scope="col">Object Type</th><th scope="col">#Read</th><th scope="col">#Hit</th><th scope="col">Hit Ratio%</th></tr></thead><tbody>' ;
@@ -1365,6 +1407,25 @@ select '</tbody></table><p>' ;
 select '<p><table class="bordered sortable"><caption>Statement Statistics Summary</caption><thead><tr><th scope="col">Database</th><th scope="col">Calls</th><th scope="col">Total Time</th><th scope="col">DBcpu</th><th scope="col">IOcpu</th><th scope="col">Stmt/sec.</th></tr></thead><tbody>' ;
 \if :var_version_13p
 \if :var_version_14p
+\if :var_version_17p
+    select '<tr><td>', datname,
+       '<td class="align-right">'||sum(calls),
+       '<td class="align-right">'||round(sum(total_exec_time)),
+       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
+       '    <td>', round(sum( (shared_blk_read_time+shared_blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
+       '<td class="align-right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
+  from pg_stat_statements, pg_database, pg_stat_statements_info
+ where pg_stat_statements.dbid=pg_database.oid
+   and pg_stat_statements.toplevel
+ group by datname;
+select '<tr><td>TOTAL',
+       '<td class="align-right">'||sum(calls),
+       '<td class="align-right">'||round(sum(total_exec_time)),
+       '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
+       '    <td>', round(sum( (shared_blk_read_time+shared_blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
+       '<td class="align-right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
+  from pg_stat_statements, pg_stat_statements_info where toplevel;
+\else
 select '<tr><td>', datname,
        '<td class="align-right">'||sum(calls),
        '<td class="align-right">'||round(sum(total_exec_time)),
@@ -1382,6 +1443,7 @@ select '<tr><td>TOTAL',
        '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
        '<td class="align-right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
   from pg_stat_statements, pg_stat_statements_info where toplevel;
+\endif
 \else
 select '<tr><td>', datname,
        '<td class="align-right">'||sum(calls),
@@ -1420,8 +1482,8 @@ select '</tbody></table><p>' ;
 select '<p><table class="bordered"><caption>Operational and Performance KPIs</caption><thead><tr><th scope="col">Statistic</th><th scope="col">Value</th><th scope="col">Advisory Level</th></tr></thead><tbody>' ;
 
 select '<tr><td>Supported Version',' <td class="align-right">', --  Major version check
-       current_setting('server_version_num')::integer/10000,
-       '<td> &gt; 12';
+       round(current_setting('server_version_num')::integer/10000),
+       '<td> &gt; 13';
 
 select '<tr><td>Connection usage %',' <td class="align-right">', -- Connection Utilization Percentage
        round(count(*)/current_setting('max_connections')::numeric*100,2),
@@ -1458,7 +1520,7 @@ select '<tr><td>Idle in Transaction',' <td class="align-right">', -- Idle in Tra
    and (now() - state_change) > '30 second'::interval;
 
 select '<tr><td>Oldest transaction age (s)',' <td class="align-right">',  -- Oldest transaction age (s)
-       round(EXTRACT(EPOCH FROM (now() - min(query_start))), 2),
+       round(EXTRACT(EPOCH FROM (now() - min(query_start)))::numeric, 2),
        '<td> &lt; 3600'
   from pg_stat_activity
  where state='active'
@@ -1565,6 +1627,17 @@ select '<tr><td>Indexes Cache Hit %',' <td class="align-right">', -- Indexes Cac
        '<td> &gt; 98'
   from pg_statio_user_indexes;
 
+\if :var_version_17p
+select '<tr><td>Timed Checkpoint %',' <td class="align-right">', -- Timed Checkpoint
+       round(100.0*num_timed/nullif(num_requested+num_timed,0),2),
+       '<td> &gt; 90'
+  from pg_stat_checkpointer;
+
+select '<tr><td>Checkpoints requested %',' <td class="align-right">',   -- Checkpoints requested percentage
+       round(100.0 * num_requested / nullif(num_timed + num_requested, 0), 2),
+       '<td> &lt; 10'
+  from pg_stat_checkpointer;
+\else
 select '<tr><td>Timed Checkpoint %',' <td class="align-right">', -- Timed Checkpoint
        round(100.0*checkpoints_timed/nullif(checkpoints_req+checkpoints_timed,0),2),
        '<td> &gt; 90'
@@ -1574,6 +1647,7 @@ select '<tr><td>Checkpoints requested %',' <td class="align-right">',   -- Check
        round(100.0 * checkpoints_req / nullif(checkpoints_timed + checkpoints_req, 0), 2),
        '<td> &lt; 10'
   from pg_stat_bgwriter;
+\endif
 
 select '<tr><td>Database size',' <td class="align-right">', -- Database size
        pg_size_pretty(pg_database_size(datname)),
@@ -1587,13 +1661,13 @@ select '<tr><td>DBcpu %',' <td class="align-right">', -- DB CPU
        '<td> &lt; 50'
   from pg_stat_statements
  where toplevel;
-\endif
 
 select '<tr><td>Active time %',' <td class="align-right">', -- Database Active Time
        round(active_time::decimal/1000*100/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,2),
        '<td> &lt; 50'
   from pg_stat_database
  where datname=current_database();
+\endif
 
 select '<tr><td>TPS',' <td class="align-right">', -- TPS
        round(xact_commit/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,2),
@@ -1616,7 +1690,7 @@ select '<tr><td>Rows inserted /hour',' <td class="align-right">', -- Rows insert
 
 select '<tr><td>Temporary bytes /hour',' <td class="align-right">', -- Temporary bytes writen /hour
        pg_size_pretty(round(temp_bytes::decimal*3600/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())), 2))::decimal),
-       '<td> &lt;1 GB'
+       '<td> &lt; 1 GB'
   from pg_stat_database
  where datname=current_database();
 
@@ -1659,7 +1733,7 @@ select '<tr><td>Duplicate indexes',' <td class="align-right">', -- Duplicate ind
 
 select '<tr><td>Too much objects',' <td class="align-right">', -- Too much objects
        count(*),
-       '<td> &lt;20 K'
+       '<td> &lt; 20 K'
  from pg_class, pg_roles
 where relowner=pg_roles.oid
   and rolname not in ('enterprisedb', 'alloydbadmin', 'cloudsqladmin');
@@ -1821,7 +1895,18 @@ select '<tr><td>'||schemaname,
  limit 20;
 select '</tbody></table><p>' ;
 
-select '<p><table class="bordered"><caption>Tables Custom Storage Definition</caption><thead><tr><th scope="col">Schema</th><th scope="col">Object</th><th scope="col">Storage Parameter</th></tr></thead><tbody>' ;
+select '<p><table class="bordered"><caption>Tables Custom Storage Settings</caption><thead><tr><th scope="col">Schema</th><th scope="col">Object #</th><th scope="col">Storage Parameter</th></tr></thead><tbody>' ;
+select '<tr><td>'||n.nspname,
+   '<td class="align-right">', count(*),
+   '<td>', unnest(t.reloptions)
+  from pg_class t, pg_namespace n
+ where t.relnamespace=n.oid
+   and n.nspname not in('pg_catalog')
+ group by n.nspname, unnest(t.reloptions)
+ order by n.nspname, unnest(t.reloptions);
+select '</tbody></table><p>' ;
+
+select '<p><table class="bordered"><caption>Custom Storage Details (first 20)</caption><thead><tr><th scope="col">Schema</th><th scope="col">Object</th><th scope="col">Storage Parameter</th></tr></thead><tbody>' ;
 select '<tr><td>'||n.nspname,
    '<td>', t.relname,
    '<td>', unnest(t.reloptions)
@@ -3091,7 +3176,7 @@ select '<p><table class="bordered"><tr><th>Additional PG16+ Statistics</th></tr>
 select '<tr><td><div class="pre-like">' ;
 \pset tuples_only
 \a
-select backend_type, io_object, io_context, reads, writes, extends,
+select backend_type, object, context, reads, writes, extends,
        op_bytes, evictions, reuses, fsyncs
   from pg_stat_io;
 \pset tuples_only
@@ -3116,27 +3201,15 @@ select count(*) as total, a.state, a.wait_event_type, a.wait_event, b.descriptio
 select * from pg_stat_progress_copy;
 select * from pg_stat_progress_vacuum;
 
-select num_timed, num_requested, write_time, sync_time, buffers_written, stats_reset  
-  from pg_stat_checkpointer;
-
-select '<table>';
-select '<tr><td class="align-right">'||buffers_clean as buffer_clean,
-       '<td class="align-right">'||maxwritten_clean as maxwritten_clean, 
-       '<td class="align-right">'||buffers_alloc as buffer_alloc, 
-       '<td>'|| stats_reset as stats_reset
+select *
  from pg_stat_bgwriter;
-select '<tr><td class="align-right">'||num_timed as num_timed, 
-       '<td class="align-right">'|| num_requested as num_requested, 
-       '<td class="align-right">'|| buffers_written as buffers_written, 
-       '<td class="align-right">'|| round(write_time/1000) as write_time,
-       '<td class="align-right">'|| round(sync_time/1000) as sync_time,
-       '<td>'|| stats_reset as stats_reset
+select *
  from pg_stat_checkpointer;
-select '</table>';
-
 \pset tuples_only
 \a
-select '</div></table><p>' ;
+
+select '</table>';
+select '</div></table>';
 \endif
 
 
@@ -3151,6 +3224,25 @@ select * from pg_aios;
 select * from pg_ls_summariesdir();
 select * pg_get_loaded_modules();
 -- select * from pg_shmem_allocations_numa;
+-- SELECT count(*) FROM pg_get_aios();
+
+select * from pg_stat_io;
+select * from pg_stat_checkpointer;
+
+\pset tuples_only
+\a
+select '</div></table><p>' ;
+\endif
+
+
+\if :var_version_19p
+select '<p><a id="19_stats"></a>'  ;
+select '<p><table class="bordered"><tr><th>Additional PG19+ Statistics</th></tr>';
+select '<tr><td><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+--
 
 \pset tuples_only
 \a
@@ -3558,6 +3650,22 @@ select datid, datname, blks_read, blks_hit,
   from pg_stat_database
  where datname not like 'template%';
 
+\if :var_version_17p
+select dbid, queryid, calls, total_exec_time,
+       shared_blk_read_time, shared_blk_write_time,
+       local_blk_read_time, local_blk_write_time,
+       temp_blk_read_time, temp_blk_write_time,
+       substring(regexp_replace(query, E'[\\n\\r]+', ' ', 'g' ), 1, 140) top_read_IO_query
+  from pg_stat_statements
+ order by shared_blk_read_time desc limit 10;
+select dbid, queryid, calls, total_exec_time,
+       shared_blk_read_time, shared_blk_write_time,
+       local_blk_read_time, local_blk_write_time,
+       temp_blk_read_time, temp_blk_write_time,
+       substring(regexp_replace(query, E'[\\n\\r]+', ' ', 'g' ), 1, 140) top_write_IO_query
+  from pg_stat_statements
+ order by shared_blk_write_time desc limit 10;
+\else
 select dbid, queryid, calls, total_exec_time, blk_read_time, blk_write_time,
        substring(regexp_replace(query, E'[\\n\\r]+', ' ', 'g' ), 1, 140) top_read_IO_query
   from pg_stat_statements
@@ -3568,7 +3676,7 @@ select dbid, queryid, calls, total_exec_time, blk_read_time, blk_write_time,
   from pg_stat_statements
 -- WHERE dbid in (SELECT oid from pg_database where current_database() = 'postgres' or datname=current_database())
  order by blk_write_time desc limit 10;
-
+\endif
 
 select *
   from google_db_advisor_workload_report;
@@ -3636,4 +3744,3 @@ select '</body></html>' ;
 \pset tuples_only
 \a
 \o
-
