@@ -70,7 +70,7 @@ ch2html has been designed to work on ClickHouse 18.x releases or newer
 
 # License
 db2html: RDBMSs simple SQL assessment reports in HTML
-Copyright 1996-2025 mail@meo.bogliolo.name 
+Copyright 1996-2026 mail@meo.bogliolo.name 
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -82,5 +82,6 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
 See the GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program. If not, see https://www.gnu.org/licenses/
+
 
 
