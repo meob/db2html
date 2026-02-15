@@ -1,9 +1,9 @@
 REM Programma:	ora2html.sql
 REM 		Oracle configuration HTML report
-REM Autore:	Bartolomeo Bogliolo mail [AT] meo.bogliolo.name meo
-REM               https://www.meo.bogliolo.name
+REM Autore:	Bartolomeo Bogliolo mail@meo.bogliolo.name meo
+REM               http://meoshome.it.eu.org/
 REM Data:	1-APR-98
-REM Versione:	1.0.37b 2026-01-06
+REM Versione:	1.0.35d 2024-08-15
 REM Note:	
 REM      	1-APR-98 mail@meo.bogliolo.name
 REM		 Versione HTML iniziale basata su gen.sql, passaggio alla lingua inglese
@@ -43,10 +43,32 @@ REM 		1-APR-21 mail@meo.bogliolo.name
 REM		 1.0.34 RU and RUP updated (b) Halloween release update (c) 1 April 2022 release update (d) Enabled jobs (e) Last RUs
 REM 		1-AUG-22 mail@meo.bogliolo.name 
 REM		 1.0.35 RU and RUP updated, CS in Summary  (a) List all parameters (b) data types (c,d) version updates
-REM 		31-OCT-24 mail@meo.bogliolo.name 
-REM		 1.0.36 Use CTE instead of temporary tables (9.2+), RU and RUP updated
-REM 		31-OCT-25 mail@meo.bogliolo.name 
-REM		 1.0.37 Enhanced formatting with new style.css and util.js (a) small fixes (b) year change
+
+
+create view v_tab_occ as
+ select tablespace_name,sum(bytes) bytes, max(extent_id)+1 max_extent
+ from sys.dba_extents
+ group by tablespace_name;
+create view v_tab_free
+ as select tablespace_name,max(bytes) bytes
+ from sys.dba_free_space
+ group by tablespace_name;
+create table v_big_obj
+ as select segment_name, segment_type,
+    tablespace_name, owner, sum(bytes) bytes
+ from sys.dba_extents
+ group by segment_name, segment_type, tablespace_name, owner
+ order by bytes desc;
+create table v_frg_obj
+ as select segment_name, segment_type,
+    tablespace_name, owner, count(*) extents, sum(bytes) bytes
+ from sys.dba_extents
+ group by segment_name, segment_type, tablespace_name, owner
+ order by extents desc;
+create table v_log_sd
+ as select count(*)/7 log_sd
+ from sys.v_$log_history
+ where first_time > sysdate-7;
 
 set colsep ' '
 set pagesize 9999
@@ -56,19 +78,17 @@ set feedback off
 set timing off
 set define off
 set sqlprompt ''
-set trimout on
-set trimspool on
 ttitle off
 spool ora2html.htm
 
-select '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><link rel="stylesheet" href="style.css" /> <title>', value,
-  ' - Oracle Statistics - ora2html</title> </head>'||
+select '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" /><link rel="stylesheet" href="ux3.css" /> <title>', value,
+  ' - ora2html Oracle Statistics</title> </head>'||
  '<body>'
 from v$parameter
 where name like 'db_name';
 
 select '<P><a id="top"></A>' from dual;
-select '<h1 align=center>Oracle - '||substr(value,1,25)||'</h1>'
+select '<h1 align=center>'||substr(value,1,25)||'</h1>'
 from v$parameter
 where name ='db_name';
 
@@ -111,11 +131,14 @@ from dual;
 select 'by: '||user
 from dual;
 
-select 'using: <I><b>ora2html.sql</b> v.1.0.37b'
+select 'using: <I><b>ora2html.sql</b> v.1.0.35d'
+from dual;
+select '<br>Software by ' from dual;
+select '<A HREF="http://meoshome.it.eu.org/">Meo Bogliolo</A></I><p>'
 from dual;
  
 select '<hr><P><a id="status"></A>' "Status" from dual;
-select '<P><table class="bordered"><tr><td><b>Summary</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Summary</b></td></tr>'
  from dual;
 select '<tr><td><b>Item</b>',
  '<td><b>Value</b>'
@@ -201,10 +224,6 @@ select '<tr><td>'||' Archiver :', '<! 60>',
  '<td>'|| archiver
 from v$instance;
 
-with v_log_sd
- as (select count(*)/7 log_sd
- from sys.v_$log_history
- where first_time > sysdate-7)
 select '<tr><td>'||' RedoLog Writes Day (MB) :', '<! 65>',
  '<td align="right">'||to_char(avg(bytes)*log_sd/(1024*1024),'999999999999')
 from v_log_sd, sys.v_$log
@@ -212,7 +231,7 @@ group by log_sd;
 select '</table><p><hr>' from dual;
 
 select '<P><A NAME="ver"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Version check</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Version check</b></td></tr>' from dual;
 select '<tr><td><b>Version</b>',
  '<td><b> Supported Release</b>',
  '<td><b> Last releases</b>',
@@ -220,21 +239,21 @@ select '<tr><td><b>Version</b>',
 select '<tr><td>', banner from v$version where banner like 'Oracle%';
 REM supported
 select ' <td>', decode(substr(banner,instr(banner, '.',1,1)-2, instr(banner, '.',1,2)-instr(banner, '.',1,1)+2),
-                       '12.2', 'NO', '18.0', 'NO', '19.0', 'YES', '21.0', 'NO', '23.0', 'YES', '26.0', 'YES',
+                       '12.2', 'NO', '18.0', 'NO', '19.0', 'YES', '21.0', 'NO', '23.0', 'YES',
                                'NO')
   from v$version where banner like 'Oracle%'; 
 REM last releases (n, n-1)
 select ' <td>', decode(substr(banner,instr(banner, '.',1,1)-2, instr(banner, '.',1,2)-instr(banner, '.',1,1)+2),
-                       '12.2', 'NO', '18.0', 'NO', '19.0', 'YES', '21.0', 'NO', '23.0', 'YES', '26.0', 'YES',
+                       '12.2', 'NO', '18.0', 'NO', '19.0', 'YES', '21.0', 'NO', '23.0', 'YES',
                                'NO')
   from v$version where banner like 'Oracle%'; 
-select ' <td>Last Release Updates (12.2+): <b>23.26.0</b>, 21.20, <b>19.29</b>; 20.2, 18.14, 12.2.0.1.220118' from dual;
+select ' <td>Last Release Updates (12.2+): <b>23.4</b>, 21.16, <b>19.25</b>; 20.2, 18.14, 12.2.0.1.220118' from dual;
 select ' <br>Last Patch Set Updates (12.1-): 12.1.0.2.221018, 11.2.0.4.201020, 10.2.0.5.19; 9.2.0.8, 8.1.7.4, 7.3.4.5' from dual;
 select '</table><p>' from dual;
-select '<P><table class="bordered"><tr><td><b>Versions</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Versions</b></td></tr>' from dual;
 select '<tr><td>'||banner||' </tr></td>' version from sys.v_$version;
 select '</table><p>' from dual;
-select '<P><table class="bordered"><tr><td><b>Component</b><td><b>Description</b>',
+select '<P><table border="2"><tr><td><b>Component</b><td><b>Description</b>',
  '<td><b>Version</b>' from dual;
 select '<tr><td>'||comp_id comp,
  '<td>'||comp_name des,
@@ -245,7 +264,7 @@ select '</table><p><hr>' from dual;
 
 
 select '<P><a id="tbs"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Tablespaces</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Tablespaces</b></td></tr>' from dual;
 select '<tr><td><b>Tablespace</b>',
  '<td><b>Total</b>',
  '<td><b>Occuped</b>',
@@ -253,14 +272,6 @@ select '<tr><td><b>Tablespace</b>',
  '<td><b>Max_free</b>',
  '<td><b>Max_extent</b>'
 from dual;
-with v_tab_occ as
- (select tablespace_name,sum(bytes) bytes, max(extent_id)+1 max_extent
- from sys.dba_extents
- group by tablespace_name),
-     v_tab_free as 
- (select tablespace_name,max(bytes) bytes
- from sys.dba_free_space
- group by tablespace_name)
 select '<tr><td>'|| a.tablespace_name tablespace,
  '<td align="right">'||to_char(sum(a.bytes),'999,999,999,999,999') total,
  '<td align="right">'||to_char(nvl(b.bytes,0),'999,999,999,999,999') occuped,
@@ -277,10 +288,6 @@ order by a.tablespace_name;
 select '<tr><td>TOTAL' tablespace,
  '<td align="right">'||to_char(round(sum(a.bytes)/(1024*1024)),'999,999,999,999')||' MB' total
 from sys.dba_data_files a;
-with v_tab_occ as
- (select tablespace_name,sum(bytes) bytes, max(extent_id)+1 max_extent
- from sys.dba_extents
- group by tablespace_name)
 select
  '<td align="right">'||to_char(round(sum(b.bytes)/(1024*1024)),'999,999,999,999')||' MB' total,
  '<td align="right"> -' pct,
@@ -290,7 +297,7 @@ from v_tab_occ b;
 select '</table>' from dual;
 
 select '<P><a id="segs"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Segments</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Segments</b></td></tr>' from dual;
 select '<tr><td><b>Segment Type',
  '<td><b>Used Space</b>'
 from dual;
@@ -306,7 +313,7 @@ select '</table><p><hr>' from dual;
 
 set numwidth  5
 select '<P><a id="obj"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Schema/Object Matrix</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Schema/Object Matrix</b></td></tr>' from dual;
 select '<tr><td><b>Owner</b>',
  '<td><b> Tabs</b>',
  '<td><b> Prts</b>',
@@ -372,27 +379,15 @@ from sys.dba_objects;
 select '</table><p>' from dual;
 
 select '<P><a id="schema_size"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Schema/Segments Size</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Schema/Segments Size</b></td></tr>' from dual;
 select '<tr><td><b>Owner</b>',
- '<td><b> Table</b>',
- '<td><b> Index</b>',
- '<td><b> Table Partition</b>',
- '<td><b> Index Partition</b>',
- '<td><b> Table SubPartition</b>',
- '<td><b> Index SubPartition</b>',
- '<td><b> Cluster</b>',
- '<td><b> LOB Segment</b>',
+ '<td><b> Tables</b>',
+ '<td><b> Indexes</b>',
  '<td><b> Total Size</b>'
 from dual;
 select '<tr><td>'||owner owner,
  '<td align="right">'||to_char(sum(decode(segment_type, 'TABLE',bytes,0)),'999,999,999,999,999')    tabs,
  '<td align="right">'||to_char(sum(decode(segment_type, 'INDEX', bytes,0)),'999,999,999,999,999')    idxs,
- '<td align="right">'||to_char(sum(decode(segment_type, 'TABLE PARTITION',bytes,0)),'999,999,999,999,999')    tabp,
- '<td align="right">'||to_char(sum(decode(segment_type, 'INDEX PARTITION', bytes,0)),'999,999,999,999,999')    idxs,
- '<td align="right">'||to_char(sum(decode(segment_type, 'TABLE SUBPARTITION',bytes,0)),'999,999,999,999,999')    tabsp,
- '<td align="right">'||to_char(sum(decode(segment_type, 'INDEX SUBPARTITION', bytes,0)),'999,999,999,999,999')    idxsp,
- '<td align="right">'||to_char(sum(decode(segment_type, 'CLUSTER',bytes,0)),'999,999,999,999,999')    clu,
- '<td align="right">'||to_char(sum(decode(segment_type, 'LOBSEGMENT', bytes,0)),'999,999,999,999,999')    lob,
  '<td align="right">'||to_char(sum(bytes),'999,999,999,999,999') tot
 from sys.dba_segments
 group by owner
@@ -400,18 +395,12 @@ order by owner;
 select '<tr><td>TOTAL' total,
  '<td align="right">'||to_char(sum(decode(segment_type, 'TABLE',bytes,0)),'999,999,999,999,999')    tabs,
  '<td align="right">'||to_char(sum(decode(segment_type, 'INDEX', bytes,0)),'999,999,999,999,999')    idxs,
- '<td align="right">'||to_char(sum(decode(segment_type, 'TABLE PARTITION',bytes,0)),'999,999,999,999,999')    tabp,
- '<td align="right">'||to_char(sum(decode(segment_type, 'INDEX PARTITION', bytes,0)),'999,999,999,999,999')    idxs,
- '<td align="right">'||to_char(sum(decode(segment_type, 'TABLE SUBPARTITION',bytes,0)),'999,999,999,999,999')    tabsp,
- '<td align="right">'||to_char(sum(decode(segment_type, 'INDEX SUBPARTITION', bytes,0)),'999,999,999,999,999')    idxsp,
- '<td align="right">'||to_char(sum(decode(segment_type, 'CLUSTER',bytes,0)),'999,999,999,999,999')    clu,
- '<td align="right">'||to_char(sum(decode(segment_type, 'LOBSEGMENT', bytes,0)),'999,999,999,999,999')    lob,
  '<td align="right">'||to_char(sum(bytes),'999,999,999,999,999') tot
 from sys.dba_segments;
 select '</table><p><a href="#top">Top</a><hr>' from dual;
 
 select '<P><a id="inv"></A>' "Invalid Objects" from dual;
-select '<P><table class="bordered"><tr><td><b>Invalid Objects</b></td></tr>' 
+select '<P><table border="2"><tr><td><b>Invalid Objects</b></td></tr>' 
 from dual;
 select '<tr><td><b>Owner</b>',
  '<td><b>Table</b>',
@@ -443,24 +432,9 @@ from sys.dba_objects
 where status <> 'VALID'
 group by owner
 order by owner;
-select 
- '<tr><td>TOTAL'
- ||'<td>'||sum(decode(object_type, 'TABLE',1,0))   
- ||'<td>'||sum(decode(object_type, 'INDEX',1,0))   
- ||'<td>'||sum(decode(object_type, 'TRIGGER',1,0))
- ||'<td>'||sum(decode(object_type, 'PACKAGE',1,0))
- ||'<td>'||sum(decode(object_type, 'PACKAGE BODY',1,0))
- ||'<td>'||sum(decode(object_type, 'PROCEDURE',1,0))
- ||'<td>'||sum(decode(object_type, 'FUNCTION',1,0))
- ||'<td>'||sum(decode(object_type, 'SEQUENCE',1,0))
- ||'<td>'||sum(decode(object_type, 'SYNONYM',1,0))
- ||'<td>'||sum(decode(object_type, 'VIEW',1,0))  
- ||'<td>'||count(*)
-from sys.dba_objects
-where status <> 'VALID';
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Invalid Indexes</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Invalid Indexes</b></td></tr>' from dual;
 select '<tr><td><b>Owner</b>',
  '<td><b>Indexes</b>',
  '<td><b>Status</b>'
@@ -483,19 +457,19 @@ group by index_owner, status
 order by index_owner;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Invalid Datafiles</b></td></tr>' 
+select '<P><table border="2"><tr><td><b>Invalid Datafiles</b></td></tr>' 
 from dual;
 select '<tr><td><b>Datafile</b>',
  '<td><b>Status</b>'
 from dual;
 select 
  '<tr><td>#'||file#||' - '||name ||'<td>'|| status ||'<td>'|| enabled
-from v$datafile
+from sys.v$datafile
 where status <> 'ONLINE'
  and status <> 'SYSTEM';
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Invalid Blocks</b></td></tr>' 
+select '<P><table border="2"><tr><td><b>Invalid Blocks</b></td></tr>' 
 from dual;
 select '<tr><td><b>File#</b>',
  '<td><b>Block#</b>',
@@ -503,12 +477,12 @@ select '<tr><td><b>File#</b>',
 from dual;
 select 
  '<tr><td>#'||file#, '<td>'|| block#, '<td>'|| CORRUPTION_TYPE
-from v$database_block_corruption;
+from sys.v$database_block_corruption;
 select '</table><p><hr>' from dual;
 
 select '<P><a id="usg"></A>' from dual;
 rem missing: UNDO, NEXTED TABLE, TYPE2 UNDO, ... I know but they are a bit less important here
-select '<P><table class="bordered"><tr><td><b>Space Usage</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Space Usage</b></td></tr>' from dual;
 select '<tr><td><b>Tablespace</b>',
  '<td><b>Total (MB)</b>',
  '<td><b>Tables</b>',
@@ -560,7 +534,7 @@ select '<tr><td>TOTAL (MB)',
 from sys.dba_extents;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered">' from dual;
+select '<P><table border="2">' from dual;
 select '<tr><td><b>Container</b>',
  '<td><b>Bytes</b>'
 from dual;
@@ -570,7 +544,7 @@ from dba_recyclebin;
 select '</table><p><hr>' from dual;
 
 select '<P><a id="part"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Partitioning</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Partitioning</b></td></tr>' from dual;
 select '<tr><td><b>Owner</b>', '<td><b>#Partitioned Tables</b>' from dual;
 select '<tr><td>', table_owner,'<td align=right>', count(distinct table_name)
  from dba_tab_partitions
@@ -579,7 +553,7 @@ select '<tr><td>', table_owner,'<td align=right>', count(distinct table_name)
  order by table_owner;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Partitioning Details</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Partitioning Details</b></td></tr>' from dual;
 select '<tr><td><b>Owner</b>', '<td><b>Table</b>', '<td><b>Partitions</b>', '<td><b>Rows</b>', '<td><b>Est. Size</b>'
 from dual;
 select '<tr><td>',table_owner, '<td>', TABLE_NAME, '<td align="right">', 
@@ -591,7 +565,7 @@ group by TABLE_OWNER, TABLE_NAME
 order by TABLE_OWNER, TABLE_NAME;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Partitions Details</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Partitions Details</b></td></tr>' from dual;
 select '<tr><td><b>Owner</b>', '<td><b>Table</b>', '<td><b>Tablespace</b>', '<td><b>Partition</b>', '<td><b>Rows</b>', '<td><b>Sub.Partitions</b>' from dual;
 select '<tr><td>', table_owner,'<td>', table_name,'<td>', tablespace_name,'<td>', partition_name,'<td align=right>', to_char(num_rows,'999,999,999,999'),'<td align=right>', subpartition_count
  from dba_tab_partitions
@@ -601,7 +575,7 @@ select '<tr><td>', table_owner,'<td>', table_name,'<td>', tablespace_name,'<td>'
 select '<tr><td>...</table><p>' from dual;
 
 select '<a id="parallel"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Parallel degree</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Parallel degree</b></td></tr>' from dual;
 select '<tr><td><b>Degree</b>', '<td><b>Instances</b>', '<td><b>#Tables</b>' from dual;
 select '<tr><td>', degree,'<td>', instances,'<td>', count(*)
  from dba_tables
@@ -611,7 +585,7 @@ select '<tr><td>', degree,'<td>', instances,'<td>', count(*)
 select '</table><p><hr>' from dual;
 
 select '<a id="compression"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Compression</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Compression</b></td></tr>' from dual;
 select '<tr><td><b>Owner</b><td><b>Compression</b>', '<td><b>#Tables</b>' from dual;
 select '<tr><td>', owner,'<td>', compression,'<td>', count(*)
  from dba_tables
@@ -647,8 +621,18 @@ select '<tr><td>TOTAL<td>Compressed Tablespaces<td>', count(*)
    and compression='ENABLED';
 select '</table><p><hr>' from dual;
 
+select '<P><a id="spatial"></A>' from dual;
+select '<P><table border="2"><tr><td><b>Oracle Spatial</b></td></tr>' from dual;
+select '<tr><td><b>Owner</b>', '<td><b>Spatial Tables</b>' from dual;
+select '<tr><td>', owner,'<td align=right>', count(*)
+ from all_sdo_geom_metadata
+ group by owner;
+select '<tr><td>TOTAL<td align=right>', count(*)
+ from all_sdo_geom_metadata;
+select '</table><p><a href="#top">Top</a><hr>' from dual;
+
 select '<P><a id="sga"></A>' from dual;
-select '<P><table><tr><td valign=top><table class="bordered"><tr><td><b>SGA</b></td></tr>' from dual;
+select '<P><table><tr><td valign=top><table border="2"><tr><td><b>SGA</b></td></tr>' from dual;
 select '<tr><td><b>SGA element</b>', '<td><b>Bytes</b>', '<td><b>MB</b>' from dual;
 select '<tr><td>'||substr(name,1,25),
  '<td align="right">'||to_char(value,'999,999,999,999'),
@@ -657,7 +641,7 @@ from sys.v_$sga
 order by value desc;
 select '</table><p>' from dual;
 
-select '<td valign=top><table class="bordered"><tr><td><b>Memory Usage</b></td></tr>' from dual;
+select '<td valign=top><table border="2"><tr><td><b>Memory Usage</b></td></tr>' from dual;
 select '<tr><td><b>Pool</b>', '<td><b>Name</b>','<td><b>MB</b>'
 from dual;
 select '<tr><td>'||pool, '<td>'||name, 
@@ -666,7 +650,7 @@ from (select pool, name, bytes from V$sgastat order by bytes desc)
 where rownum <=20;
 select '<tr><td>...</table><p>' from dual;
 
-select '<td valign=top><table class="bordered"><tr><td><b>Free Memory</b></td></tr>' from dual;
+select '<td valign=top><table border="2"><tr><td><b>Free Memory</b></td></tr>' from dual;
 select '<tr><td><b>Pool</b>', '<td><b>Name</b>','<td><b>MB</b>'
 from dual;
 select '<tr><td>'||pool, '<td>'||name, 
@@ -675,11 +659,11 @@ from V$sgastat
 where name like 'free memory%';
 select '</table><p>' from dual;
 
-select '<td valign=top><table class="bordered"><tr><td><b>Parameters</b></td></tr>' from dual;
+select '<td valign=top><table border="2"><tr><td><b>Parameters</b></td></tr>' from dual;
 select '<tr><td><b>Parameter</b>', '<td><b>Value</b>','<td><b>IsDefault</b>'
 from dual;
 select  '<tr><td>'||name||'<td align="right">'||to_char(value,'999,999,999,999')||'<td>'||isdefault
-  from v$parameter
+  from sys.v$parameter
  where name in ('sga_target', 'sga_max_size', 'db_cache_size', 'shared_pool_size', 'memory_target',
                 'large_pool_size', 'java_pool_size', 'streams_pool_size', 'inmemory_size',
                 'memory_max_target', 'log_buffer', 'db_keep_cache_size', 'db_recycle_cache_size')
@@ -687,7 +671,7 @@ order by isdefault, name;
 select '</table></table><p><hr>' from dual;
 
 select '<P><a id="dat"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Datafiles</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Datafiles</b></td></tr>' from dual;
 select '<tr><td><b>Tablespace</b>',
  '<td><b>Datafile</b>',
  '<td><b>Bytes</b>',
@@ -703,19 +687,19 @@ from sys.dba_data_files, v$filestat
 where file_id=file#
 order by tablespace_name,file_name;
 select '</table><p>' from dual;
-select '<b>Autoextend datafiles: </b><small>' from dual;
+select '<b>Autoextend datafiles: </b>' from dual;
 select file_name data_file
  from sys.dba_data_files
  where autoextensible='YES';
-select '</small><p><b>Not autoextensible datafiles: </b><small>' from dual;
+select '<p><b>Not autoextensible datafiles: </b>' from dual;
 select file_name data_file
  from sys.dba_data_files
  where autoextensible<>'YES';
-select '</small><p><hr>' from dual;
+select '<p><hr>' from dual;
 
 set numwidth  8
 select '<P><a id="roll"></A>' "Rollbacks" from dual;
-select '<P><table class="bordered"><tr><td><b>Rollbacks</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Rollbacks</b></td></tr>' from dual;
 select '<tr><td><b>Rollback Segment</b>',
  '<td><b>Tablespace</b>',
  '<td><b>Bytes</b>',
@@ -734,18 +718,18 @@ group by a.tablespace_name,a.segment_name,status
 order by a.tablespace_name,a.segment_name;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Undo Parameters</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Undo Parameters</b></td></tr>'
  from dual;
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>'
 from dual;
 select '<tr><td>'||name||'<td>'||value
-from v$parameter
+from sys.v$parameter
 where name like 'undo%'
 order by name; 
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Undo Datafiles</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Undo Datafiles</b></td></tr>'
  from dual;
 select '<tr><td><b>Tablespace</b>',
  '<td><b>Datafile</b>',
@@ -761,7 +745,7 @@ where tablespace_name like 'UNDO%'
 order by tablespace_name,file_name;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Undo Extents</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Undo Extents</b></td></tr>'
  from dual;
 select '<tr><td><b>Tablespace</b>',
  '<td><b>Status</b>',
@@ -776,7 +760,7 @@ group by tablespace_name,status
 order by tablespace_name,status;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Tuned retention</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Tuned retention</b></td></tr>'
  from dual;
 select '<tr><td><b>AVG</b>',
  '<td><b>MAX</b>',
@@ -790,7 +774,7 @@ from v$undostat;
 select '</table><p><hr>' from dual;
 
 select '<P><a id="log"></A>' from dual;
-select '<P><table class="bordered"><tr><td><b>Log Files</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Log Files</b></td></tr>' from dual;
 select '<tr><td><b>Group#</b>', '<td><b>Log File</b>', '<td><b>Status</b>',
  '<td><b>Bytes</b>', '<td><b>Thread</b>'
 from dual;
@@ -801,7 +785,7 @@ where sys.v_$logfile.group# = sys.v_$log.group#
 order by thread#, 1;
 select '</table><p>' from dual;
 
-select '<P><table><tr><td valign=top><table class="bordered"><tr><td><b>Log Switches</b><td>Daily</tr>' from dual;
+select '<P><table><tr><td valign=top><table border="2"><tr><td><b>Log Switches</b><td>Daily</tr>' from dual;
 select '<tr><td><b>Date</b>', '<td><b> Count</b>'
 from dual;
 
@@ -814,7 +798,7 @@ group by trunc(first_time)
 order by trunc(first_time) desc;
 select '</table>' from dual;
 
-select '<td valign=top><table class="bordered"><tr><td><b>Log Switches</b><td>Hourly</tr>' from dual;
+select '<td valign=top><table border="2"><tr><td><b>Log Switches</b><td>Hourly</tr>' from dual;
 select '<tr><td><b>Date</b>','<td><b> Count</b>'
 from dual;
 select '<tr><td>'||to_char(first_time, 'YYYY-MM-DD HH24')||':00:00' switch_date,
@@ -825,7 +809,7 @@ group by to_char(first_time, 'YYYY-MM-DD HH24')
 order by to_char(first_time, 'YYYY-MM-DD HH24') desc;
 select '</table></table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Archived Logs</b>' from dual;
+select '<P><table border="2"><tr><td><b>Archived Logs</b>' from dual;
 select '<tr><td><b>Creator</b>','<td><b>Registrar</b>','<td><b>Status</b>','<td><b>Archived</b>','<td><b>Count</b>'
 from dual;
 select '<tr><td>'||creator, '<td>'||registrar, '<td>'||status, '<td>'||archived,
@@ -837,7 +821,7 @@ order by status,creator,registrar;
 select '</table><p><a href="#top">Top</a><hr>' from dual;
 
 select '<P><a id="control"></a>' "Control Files" from dual;
-select '<P><table class="bordered"><tr><td><b>Control File Informations</b></table><pre>' from dual;
+select '<P><table border="2"><tr><td><b>Control File Informations</b></table><pre>' from dual;
 set heading on
 column type format a32
 select value files
@@ -849,7 +833,7 @@ set heading off
 select '</pre><p>' from dual;
 
 select '<P><a id="recovery"></a>' "Recovery Area" from dual;
-select '<P><table class="bordered"><tr><td><b>Recovery Area Usage </b></table><pre>' from dual;
+select '<P><table border="2"><tr><td><b>Recovery Area Usage </b></table><pre>' from dual;
 set heading on
 column RECOVERY_DEST_SIZE format a50
 column FREE_RECOVERY_PCT format a20
@@ -861,7 +845,7 @@ set heading off
 select '</pre><p><a href="#top">Top</a><hr>' from dual;
 
 select '<P><a id="usr"></a>' "Users" from dual;
-select '<P><table class="bordered"><tr><td><b>Users</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Users</b></td></tr>' from dual;
 select '<tr><td><b>Username</b>',
  '<td><b>Default Tablespace</b>',
  '<td><b>Temporary Tablespace</b>', '<td><b>Status</b>',
@@ -880,7 +864,7 @@ select '<tr><td>TOTAL<td>'||count(*)||'<td><td>OPEN: '||sum(decode(account_statu
 select '</table><p>' from dual;
 
 select '<P><a id="profile"></a>' "Profile" from dual;
-select '<P><table class="bordered"><tr><td><b>DEFAULT Profile</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>DEFAULT Profile</b></td></tr>' from dual;
 select '<tr><td><b>Resource</b>',
  '<td><b>Limit</b>'
 from dual;
@@ -892,7 +876,7 @@ select '<tr><td>'||resource_name,
 select '</table><p>' from dual;
 
 select '<P><a id="pw_users"></a>' "PW users" from dual;
-select '<P><table class="bordered"><tr><td><b>Password file users</b></table><pre>' from dual;
+select '<P><table border="2"><tr><td><b>Password file users</b></table><pre>' from dual;
 set heading on
 column username format a40
 select USERNAME,INST_ID,SYSDBA,SYSOPER
@@ -902,7 +886,7 @@ set heading off
 select '</pre>' from dual;
 
 select '<P><a id="usr_sec"></a>' "defaultpw" from dual;
-select '<P><table class="bordered"><tr><td><b>Users with default passwords</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Users with default passwords</b></td></tr>' from dual;
 select '<tr><td><b>Username</b>',
  '<td><b>Status</b>'
 from dual;
@@ -927,7 +911,7 @@ select '</table><p>See also <a href="#usr_sec_11g">11g Users</a>.<p><hr>' from d
 
 select '<P><a id="lic"></A>' "Licensing info" from dual;
 
-select '<P><table class="bordered"><tr><td><b>Licensing</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Licensing</b></td></tr>'
  from dual;
 select '<tr><td><b>Detected Edition:</b>',
  '<td>'
@@ -935,7 +919,7 @@ from dual;
 
 select '<b>Enterprise</b>'
   from sys.v_$version
- where (banner like '%Enterprise%' or banner like '%EE%') and banner like 'Oracle%';
+ where banner like '%Enterprise%' and banner like 'Oracle%';
 select '<b>XE (Express)</b>'
   from sys.v_$version
  where banner like '%Express%' and banner like 'Oracle%';
@@ -944,8 +928,7 @@ select '<b>Free (Developer-Release)</b>'
  where banner like '%Developer-Release%' and banner like 'Oracle%';
 select '<b>Standard</b>'
   from (select banner from sys.v_$version where banner like 'Oracle%') a
- where banner not like '%Enterprise%' and banner not like '%EE%'
-   and banner not like '%Express%' and banner not like '%Developer-Release%';
+ where banner not like '%Enterprise%' and banner not like '%Express%' and banner not like '%Developer-Release%';
 
 select '<tr><tr><td><b>Parameter</b>',
  '<td><b>Value</b>'
@@ -965,19 +948,19 @@ from v$license;
 
 select  
  '<tr><td>Diagnostic and tuning pack enabled<td>'|| value
-from v$parameter
+from sys.v$parameter
 where name in ('control_management_pack_access');
 select  
  '<tr><td>In-Memory enabled (12c)<td>'|| value
-from v$parameter
+from sys.v$parameter
 where name in ('inmemory_query');
 select  
  '<tr><td>Max PDBS (12cR2)<td>'|| value
-from v$parameter
+from sys.v$parameter
 where name in ('max_pdbs');
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Options</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Options</b></td></tr>' from dual;
 select '<tr><td><b>Installed</b>',
  '<td><b>Not installed</b><tr><td>'
 from dual;
@@ -990,7 +973,7 @@ select parameter ||', '
  where value='FALSE';
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Features Used</b></td></tr>' from dual;
+select '<P><table border="2"><tr><td><b>Features Used</b></td></tr>' from dual;
 select '<tr><td><b>Name</b>', '<td><b>Count</b>', '<td><b>First</b>', '<td><b>Last</b>',
  '<td><b>Description</b>'
   from dual;
@@ -1000,7 +983,7 @@ select '<tr><td>'|| name, '<td>'|| sum(DETECTED_USAGES), '<td>'|| min(FIRST_USAG
  where CURRENTLY_USED='TRUE'
  group by name, DESCRIPTION
  order by name;
-select '</table><P><table class="bordered"><tr><td><b>Features NOT in Use</b></td></tr>' from dual;
+select '</table><P><table border="2"><tr><td><b>Features NOT in Use</b></td></tr>' from dual;
 select '<tr><td><b>Name</b>', '<td><b>Count</b>', '<td><b>Description</b>'
   from dual;
 select '<tr><td>'|| name, '<td>'|| sum(DETECTED_USAGES), '<td>'|| DESCRIPTION
@@ -1010,16 +993,15 @@ select '<tr><td>'|| name, '<td>'|| sum(DETECTED_USAGES), '<td>'|| DESCRIPTION
  order by name;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>High-Water Mark Statistics</b></td></tr>' from dual;
-select '<tr><td><b>Name</b>', '<td><b>Maximum Value</b>', '<td><b>Description</b>', '<td><b>Version</b>'
+select '<P><table border="2"><tr><td><b>High-Water Mark Statistics</b></td></tr>' from dual;
+select '<tr><td><b>Name</b>', '<td><b>Maximum Value</b>', '<td><b>Description</b>'
   from dual;
-select '<tr><td>'|| name, '<td>'|| HIGHWATER, '<td>'|| DESCRIPTION, '<td>'|| version
-  from DBA_HIGH_WATER_MARK_STATISTICS
- order by version desc, name;
+select '<tr><td>'|| name, '<td>'|| HIGHWATER, '<td>'|| DESCRIPTION
+  from DBA_HIGH_WATER_MARK_STATISTICS;
 select '</table><p><a href="#top">Top</a><hr>' from dual;
 
 select '<P><a id="sess"></A>' "Sessions" from dual;
-select '<P><table class="bordered"><tr><td><b>Per-User sessions</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Per-User sessions</b></td></tr>'
   from dual;
 select '<tr><td><b>User</b>', '<td><b>InstID</b>', '<td><b>Count</b>', '<td><b>Active</b>'
   from dual;
@@ -1042,7 +1024,7 @@ select '<tr><td>TOTAL (', count(distinct s.schemaname),  ' distinct users )<td>'
    and type='USER';
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Current sessions</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Current sessions</b></td></tr>'
   from dual;
 select '<tr><td><b>SID,serial</b>', '<td><b>User</b>', '<td><b>OS User</b>', '<td><b>Process</b>',
        '<td><b>Type</b>', '<td><b>Status</b>', '<td><b>Command</b>', '<td><b>Program</b>',
@@ -1093,39 +1075,35 @@ select
 select '</table><p><hr>' from dual;
 
 select '<P><a id="sql"></A>' "Current SQL" from dual;
-select '<P><table class="bordered"><tr><td><b>SQL</b></td></tr>'
+select '<P><table border="2"><tr><td><b>SQL</b></td></tr>'
  from dual;
 select '<tr><td><b>SID</b>',
  '<td><b>User</b>',
- '<td><b>#</b>',
  '<td><b>Exec</b>',
  '<td><b>Parse</b>',
  '<td><b>Read</b>',
  '<td><b>Get</b>',
- '<td><b>SQLid</b>',
  '<td><b>Running SQL</b>'
 from dual;
+
 select 	'<tr><td>'||s.sid,
   '<td>'||s.username,
-  '<td>'||count(*) cnt,
-  '<td>'||sum(q.executions) exec,
-  '<td>'||sum(q.parse_calls) parse,
-  '<td>'||sum(q.disk_reads) read,
-  '<td>'||sum(q.buffer_gets) get,  
-  '<td>'||q.sql_id, 
-  '<td>', replace(replace(q.sql_text,'<','&lt;'),'>','&gt;') sql
+  '<td>'||q.executions exec,
+  '<td>'||q.parse_calls parse,
+  '<td>'||q.disk_reads read,
+  '<td>'||q.buffer_gets get  ,   
+  '<td>'||replace(replace(q.sql_text,'<','&lt;'),'>','&gt;') sql
 from gv$session s, gv$sql q
 where s.sql_address=q.address
 and   s.type <> 'BACKGROUND'
 and   s.status = 'ACTIVE'
 and   s.username <> 'SYS'
 and   s.inst_id = q.inst_id
-group by s.sid, s.username, q.sql_id, q.sql_text
 order by s.sid;
 select '</table><p><hr>' from dual;
 
 select '<P><a id="lock"></A>' "Locks" from dual;
-select '<P><pre><table class="bordered"><tr><td><b>Lock</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Lock</b></td></tr>'
  from dual;
 select '<tr><td><b>SID</b>',
  '<td><b>Lock Type</b>',
@@ -1144,10 +1122,10 @@ select '<tr><td>'||l.sid, '<td>'||l.type, '<td>'||decode(l.lmode, 0, 'WAITING', 
 from gv$lock l
 group by l.sid, l.type, l.lmode, l.request
 order by l.sid, l.type, l.lmode, l.request;
-select '</table></pre><p><a href="#top">Top</a><hr>' from dual;
+select '</table><p><a href="#top">Top</a><hr>' from dual;
 
 select '<P><a id="stat"></A><P>' from dual;
-select '<P><table class="bordered"><tr><td><b>Performance statistics</b><tr><td><pre>' from dual;
+select '<P><table border="2"><tr><td><b>Performance statistics</b><tr><td><pre>' from dual;
 select 'A)  Hit ratio buffer cache (>80%): '||
   to_char(round(1-(
    sum(decode(name,'physical reads',1,0)*value) 
@@ -1267,7 +1245,7 @@ select 'L1 @'||gv$sysstat.inst_id||') DBcpu: '||to_char( round((value/100)/((sys
 ;
 select '</pre></table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Stale Statistics</b></td></tr>' 
+select '<P><table border="2"><tr><td><b>Stale Statistics</b></td></tr>' 
 from dual;
 select '<tr><td><b>Owner</b>',
  '<td><b>Table Stale Stats#</b>',
@@ -1289,7 +1267,7 @@ group by owner
 order by owner;
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>I/O Statistics</b></td></tr>'
+select '<P><table border="2"><tr><td><b>I/O Statistics</b></td></tr>'
  from dual;
 select '<tr><td><b>Name</b>',
  '<td><b>Value</b>', '<td><b>Metric</b>'
@@ -1319,33 +1297,10 @@ select
   trunc(sum(decode(name,'physical write total bytes',value,0))/(1024*1024))
 from v$sysstat,v$instance
 group by startup_time;
-select '</table><p>' from dual;
-
-select '<P><table class="bordered"><tr><td><b>Latest DDLs</b></td></tr>'
- from dual;
-select '<tr><td><b>Owner</b>', '<td><b>Object</b>', '<td><b>Type</b>', '<td><b>Created</b>', '<td><b>Modified</b>'
-from dual;
-SELECT * FROM (
-SELECT '<tr><td>'||OWNER, '<td>'||OBJECT_NAME, '<td>'||OBJECT_TYPE, '<td>'||CREATED, '<td>'||LAST_DDL_TIME 
-  FROM DBA_OBJECTS
- WHERE OWNER NOT IN ('SYS', 'SYSTEM', 'RDSADMIN')
- ORDER BY GREATEST(NVL(LAST_DDL_TIME,TO_DATE('01-JAN-70')), CREATED) DESC)
-WHERE ROWNUM<21;
-select '</table><p>' from dual;
-
-select '<P><pre><table class="bordered"><tr><td><b>All Indexes</b> (enable if needed)</td></tr>'
- from dual;
-select '<tr><td><b>Owner</b>', '<td><b>Table</b>', '<td><b>Index</b>', '<td><b>DDL</b>'
-  from dual;
-SELECT owner, table_name, index_name, DBMS_METADATA.GET_DDL ('INDEX', INDEX_NAME, owner)
-  FROM DBA_INDEXES
- WHERE owner not in ('SYS', 'SYSTEM', 'RDSADMIN')
-   AND 1=0;
-select '</table></pre><p><a href="#top">Top</a><hr>' from dual;
-
+select '</table><p><a href="#top">Top</a><hr>' from dual;
 
 select '<P><a id="big"></A>' "Biggest Objects" from dual;
-select '<P><table class="bordered"><tr><td><b>Biggest Objects</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Biggest Objects</b></td></tr>'
  from dual;
 select '<tr><td><b>Object</b>',
  '<td><b>Type</b>',
@@ -1353,12 +1308,6 @@ select '<tr><td><b>Object</b>',
  '<td><b>Tablespace</b>',
  '<td><b>Bytes</b>'
 from dual;
-with v_big_obj
- as (select segment_name, segment_type,
-    tablespace_name, owner, sum(bytes) bytes
- from sys.dba_extents
- group by segment_name, segment_type, tablespace_name, owner
- order by bytes desc)
 select '<tr><td>'||segment_name,
  '<td>'||segment_type,
  '<td>'||owner,
@@ -1370,7 +1319,7 @@ order by bytes desc;
 select '<tr><td>...</table><p>' from dual;
 
 select '<P><a id="frag"></A>' "Most Fragmented Objects" from dual;
-select '<P><table class="bordered"><tr><td><b>Most Fragmented Objects</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Most Fragmented Objects</b></td></tr>'
  from dual;
 select '<tr><td><b>Object</b>',
  '<td><b>Type</b>',
@@ -1379,12 +1328,6 @@ select '<tr><td><b>Object</b>',
  '<td><b>Extents</b>',
  '<td><b>Bytes</b>'
   from dual;
-with v_frg_obj
- as (select segment_name, segment_type,
-    tablespace_name, owner, count(*) extents, sum(bytes) bytes
- from sys.dba_extents
- group by segment_name, segment_type, tablespace_name, owner
- order by extents desc)
 select '<tr><td>'||segment_name,
  '<td>'||segment_type,
  '<td>'||owner,
@@ -1398,7 +1341,7 @@ select '<tr><td>'||segment_name,
 select '<tr><td>...</table><p><hr>' from dual;
 
 select '<P><a id="psq"></A>' "PL/SQL" from dual;
-select '<P><table class="bordered"><tr><td><b>PL/SQL</b></td></tr>'
+select '<P><table border="2"><tr><td><b>PL/SQL</b></td></tr>'
   from dual;
 select '<tr>',
  '<td><b>User</b>',
@@ -1422,7 +1365,7 @@ select '<tr><td>TOTAL<td>'||type,
 select '</table><p>' from dual;
 
 select '<a id="lib"></A>' "Libraries" from dual;
-select '<P><table class="bordered"><tr><td><b>Libraries</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Libraries</b></td></tr>'
   from dual;
 select '<tr>',
  '<td><b>Owner</b>',
@@ -1437,7 +1380,7 @@ select '<tr><td>'||owner,'<td>'||library_name,'<td>'||file_spec,'<td>'||status,'
 select '</table><p><a href="#top">Top</a>' from dual;
 
 select '<P><a id="dtype"></A>' "Data Type" from dual;
-select '<P><pre><table class="bordered"><tr><td><b>Data Type Usage</b></td></tr>'
+select '<P><pre><table border="2"><tr><td><b>Data Type Usage</b></td></tr>'
   from dual;
 select '<tr>',
  '<td><b>User</b>',
@@ -1466,7 +1409,19 @@ select '<tr><td>TOTAL<td>'|| data_type,
 select '</table></pre><p><hr>' from dual;
 
 select '<P><a id="job"></A>' "JOBS" from dual;
-select '<P><table class="bordered"><tr><td><b>Scheduler Jobs</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Jobs</b></td></tr>'
+  from dual;
+select '<tr><td><b>Job Id</b>',
+ '<td><b>User</b>',
+ '<td><b>Interval</b>',
+ '<td><b>Command</b>',
+ '<td><b>Total Time</b>'
+  from dual;
+select '<tr><td>'||job||'<td>'||schema_user||'<td>'||interval||'<td>'||what||'<td>'||round(total_time)
+  from dba_jobs;
+select '</table>' from dual;
+
+select '<P><table border="2"><tr><td><b>Scheduler Jobs</b></td></tr>'
   from dual;
 select '<tr><td><b>Job Name</b>',
  '<td><b>User</b>',
@@ -1479,23 +1434,10 @@ select '<tr><td><b>Job Name</b>',
 select '<tr><td>'||job_name||'<td>'||owner||'<td>'||repeat_interval||'<td>'||start_date,
        '<td>'||job_action, program_name,
        '<td>'||run_count||'<td>'||last_run_duration||'<td>'||enabled
-  from dba_scheduler_jobs
- order by owner, enabled desc, last_run_duration desc;
+  from dba_scheduler_jobs;
 select '</table>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Jobs</b></td></tr>'
-  from dual;
-select '<tr><td><b>Job Id</b>',
- '<td><b>User</b>',
- '<td><b>Interval</b>',
- '<td><b>Command</b>',
- '<td><b>Total Time</b>'
-  from dual;
-select '<tr><td>'||job||'<td>'||schema_user||'<td>'||interval||'<td>'||what||'<td>'||round(total_time)
-  from dba_jobs;
-select '</table>' from dual;
-
-select '<P><table class="bordered"><tr><td><b>Running Jobs</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Running Jobs</b></td></tr>'
   from dual;
 select '<tr><td><b>Job Id</b>','<td><b>SID</b>',
  '<td><b>Last</b>',
@@ -1505,12 +1447,11 @@ select /*+ rule */ '<tr><td>'||job||'<td>'||sid||'<td>'||last_date||'<td>'||fail
   from dba_jobs_running;
 select '</table>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Last executed Jobs</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Last executed Jobs</b></td></tr>'
   from dual;
 select '<tr><td><b>Log Id</b>','<td><b>Name</b>',
  '<td><b>Log Date</b>',
  '<td><b>Actual Date</b>',
- '<td><b>Duration</b>',
  '<td><b>Status</b>',
  '<td><b>Errors</b>'
   from dual;
@@ -1518,15 +1459,14 @@ select * from
 (SELECT '<tr><td>'||l.log_id, '<td>'||l.job_name, 
        '<td>'||TO_CHAR (l.log_date, 'YYYY/MM/DD HH24:MI:SS.FF TZH:TZM'), 
        '<td>'||TO_CHAR (r.actual_start_date,'YYYY/MM/DD HH24:MI:SS.FF TZH:TZM'),
-       '<td>'||run_duration,
        '<td>'||r.status, '<td>'||r.errors
   FROM dba_scheduler_job_log l, dba_scheduler_job_run_details r 
  WHERE l.log_id = r.log_id(+)
  ORDER BY l.log_date DESC)
-where rownum <41;
+where rownum <20;
 select '</table>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Data Pump Jobs</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Data Pump Jobs</b></td></tr>'
   from dual;
 select '<tr><td><b>Owner</b>',
  '<td><b>Job Name</b>',
@@ -1537,7 +1477,7 @@ select '<tr><td>'||owner_name||'<td>'||job_name||'<td>'||state
 select '</table><p><hr>' from dual;
 
 select '<P><a id="rman"></A>' "RMAN" from dual;
-select '<P><table class="bordered"><tr><td><b>RMAN Configuration</b></td></tr>'
+select '<P><table border="2"><tr><td><b>RMAN Configuration</b></td></tr>'
   from dual;
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>'
@@ -1548,7 +1488,7 @@ order by conf#;
 select '</table><p><a href="#top">Top</a><hr>' from dual;
 
 select '<P><a id="dbl"></A>' "Remote Database Links" from dual;
-select '<P><table class="bordered"><tr><td><b>Database Links</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Database Links</b></td></tr>'
  from dual;
 select '<tr><td><b>Owner</b><td><b>DB Link</b>',
  '<td><b>User</b>',
@@ -1559,7 +1499,7 @@ from dba_db_links
 order by host, username, owner, db_link;
 select '</table>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Directories</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Directories</b></td></tr>'
  from dual;
 select '<tr><td><b>Owner</b><td><b>Directory</b><td><b>Path</b>'
  from dual;
@@ -1569,13 +1509,13 @@ select '<tr><td>'||owner||'<td>'||directory_name||'<td>'||directory_path
 select '</table><p><a href="#top">Top</a><hr>' from dual;
 
 select '<P><a id="par"></A>' "Oracle Parameters" from dual;
-select '<P><table class="bordered"><tr><td><b>Oracle Parameters</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Oracle Parameters</b></td></tr>'
  from dual;
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>'
 from dual;
 select '<tr><td>'||name||'<td>'||value
-from v$parameter
+from sys.v$parameter
 where isdefault ='FALSE'
 order by name; 
 
@@ -1591,19 +1531,19 @@ select '<tr><td>'||ksppinm||'<td>'||ksppstvl
  order by ksppinm;
 select '</table><p>' from dual;
 
-select '<P><pre><table class="bordered"><tr><td><b>All Parameters</b></td></tr>'
+select '<P><pre><table border="2"><tr><td><b>All Parameters</b></td></tr>'
  from dual;
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>'
 from dual;
 select '<tr><td>'||name||'<td>'||value
-from v$parameter
+from sys.v$parameter
 order by name; 
 select '</table></pre><p><a href="#top">Top</a><hr>' from dual;
 
 
 select '<P><a id="nls"></A>' "NLS Settings" from dual;
-select '<P><table class="bordered"><tr><td><b>NLS Settings</b></td></tr>'
+select '<P><table border="2"><tr><td><b>NLS Settings</b></td></tr>'
  from dual;
 select '<tr><td><b>Parameter</b>',
  '<td><b>Value</b>'
@@ -1615,7 +1555,7 @@ order by name;
 select '</table><p>' from dual;
 
 select '<P><a id="os"></A>' "OS" from dual;
-select '<P><table class="bordered"><tr><td><b>Operating System Infos</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Operating System Infos</b></td></tr>'
  from dual;
 select '<tr><td><b>Parameter</b>', '<td><b>Value</b>'
 from dual;
@@ -1623,15 +1563,11 @@ select '<tr><td>Platform<td>'||platform_name
 from v$database;
 select '<tr><td>'||stat_name||'<td align="right">'||to_char(value, '999,999,999,990.0')
 from v$osstat
-where stat_name in ('LOAD')
-order by stat_name; 
-select '<tr><td>'||stat_name||'<td align="right">'||to_char(value, '999,999,999,999,990')
-from v$osstat
-where stat_name in ('PHYSICAL_MEMORY_BYTES','NUM_CPUS', 'NUM_CPU_CORES', 'NUM_CPU_SOCKETS')
+where stat_name in ('LOAD','PHYSICAL_MEMORY_BYTES','NUM_CPUS')
 order by stat_name; 
 select '</table><p>' from dual;
 
-select '<P><table class="bordered"><tr><td><b>Timezone info</b></td></tr>'
+select '<P><table border="2"><tr><td><b>Timezone info</b></td></tr>'
  from dual;
 select '<tr><td><b>SYSDATE</b>', '<td><b>CURRENT_DATE</b>',
        '<td><b>DB TIMEZONE</b>', '<td><b>Session TIMEZONE</b>', '<td><b>OS TIMEZONE</b>'
@@ -1651,24 +1587,27 @@ select '<p><a id="cust"></A><h1>Plugins</h1>' h from dual;
 start custom.sql
 select '<p><a href="#top">Top</a><hr>' h from dual;
 
-select '<p><i>Optional migration scripts will be generated in log directory</i><br>' h from dual;
-select '<div><a href="#top" class="back-to-top">Back to index</a></div>' h from dual;
+select '<p>Generating migration scripts in log directory...<br>' h from dual;
 
 select '<P>Statistics generated on: '||
- to_char(sysdate,'DD-MON-YYYY HH24:MI:SS') 
+ to_char(sysdate,'DD-MON-YYYY HH24:MI:SS')||'<P>' 
 from dual;
 
-select '<script src="util.js"></script>' h from dual;
 select '<br> Copyright: 2026 meob - License: GNU General Public License v3.0' from dual;
-select '<br> Sources: https://github.com/meob/db2html/ <p>' from dual;
-select '</body></html>' from dual;
-
+select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' from dual;
 
 set newpage 1
 spool off
+drop view v_tab_occ;
+drop view v_tab_free;
+drop table v_big_obj;
+drop table v_frg_obj;
+drop table v_log_sd;
 
-REM Generate schema migration scripts (contribution by G. Tagliafico)
-REM set define on
-REM @SCHEMA_INFO_4_EXPIMP
+
+REM Generate schema migration scripts (great contribution by G. Tagliafico)
+set define on
+@SCHEMA_INFO_4_EXPIMP
+
 
 exit

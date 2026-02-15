@@ -26,8 +26,10 @@ REM		  ASH  (Active Session History)
 REM		  ADDM (Automatic Database Diagnostic Monitor)
 REM		This script requires the Oracle Diagnostic Pack LICENSE
 
+SET WRAP OFF
+
 column sample_time format a20
-column as_diagram format a80
+column as_diagram format a100
 column wait_event format a60
 column total_wait_time format a20
 column wait_class format a20
@@ -38,8 +40,8 @@ column name format a60
 column username format a30
 column sql_opname format a10 trunc
 column module format a20 trunc
-column machine format a24
-set lines 132
+column machine format a40 trunc
+set lines 160
 
 REM V$ACTIVE_SESSION_HISTORY --> DBA_HIST_ACTIVE_SESS_HISTORY
 ALTER SESSION SET "_optimizer_aggr_groupby_elim" = FALSE;
@@ -74,7 +76,7 @@ select to_char(stime, 'YYYY/MM/DD HH24') Sample_time,
  order by 1 desc;
 
 set heading off
-SELECT '</pre><h3>Active Sessions Peaks (more than 10 Active Sessions, by hour)</h3><pre>' from dual;  
+SELECT '</pre><h3>Active Sessions Peaks (more than 20 Active Sessions, by hour)</h3><pre>' from dual;  
 set heading on
 select to_char(stime, 'YYYY/MM/DD HH24') Sample_time,
        max(asess) Active_sessions,
@@ -85,7 +87,7 @@ select to_char(stime, 'YYYY/MM/DD HH24') Sample_time,
 	  and session_type ='FOREGROUND'
         group by sample_time)
  group by to_char(stime, 'YYYY/MM/DD HH24')
- having max(asess) >= 10
+ having max(asess) >= 20
  order by 1 desc;
 
 set heading off
@@ -144,6 +146,7 @@ FROM (SELECT n.wait_class, e.event NAME, e.time_waited / 100 time_secs
 WHERE time_secs >10
 ORDER BY time_secs DESC;
 
+SET WRAP ON
 set heading off
 SELECT '</pre><h3>Advisor Recommendations (SQL)</h3><pre>' from dual;  
 set heading on
@@ -161,13 +164,37 @@ f.TASK_NAME = o.TASK_NAME AND
 f.OBJECT_ID = o.OBJECT_ID
 and o.type = 'SQL'
 order by o.attr1, o.attr2)
-where rownum <21;
+where rownum <41;
+
+select * from (
+select round((ratio_to_report(max(impact)) over () *100)) as pct_impact_overall,
+       finding_name, type, min(impact) min_impact, max(impact) max_impact, impact_type, count(*)
+  from DBA_ADVISOR_FINDINGS 
+ where impact_type is not null
+ group by impact_type, finding_name, type
+)
+where pct_impact_overall >=10
+order by pct_impact_overall desc;
+
+select round((ratio_to_report(max(Benefit)) over () *100)) as overall_benefit_pct,
+       type, min(benefit) min_benefit, max(Benefit) max_benefit, count(*) cnt
+  from dba_Advisor_recommendations 
+where type is not null 
+group by type 
+order by 1 desc ;
+
+select * from (
+select command, message, count(*) 
+  from dba_advisor_Actions
+ group by command, message
+ order by 3 desc)
+where rownum<51;
 
 set heading off
 SELECT '</pre><h3>Advisor Recommendations (Objects)</h3><pre>' from dual;  
 set heading on
 column OBJECT_FOUND format a60
-column ACTION_FOUND format a70
+column ACTION_FOUND format a90
 
 select * from (
 SELECT o.TYPE||' '||o.attr1||'.'||substr(o.attr2,1,40) Object_found, 

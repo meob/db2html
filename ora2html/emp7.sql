@@ -1,6 +1,6 @@
 REM EMP7 Benchmark - SQL script
 REM v.1.0.0 
-REM Copyright (C) 2005-2024 mail@meo.bogliolo.name
+REM Copyright (C) 2005-2026 mail@meo.bogliolo.name
 
 rem connect scott/tiger
 

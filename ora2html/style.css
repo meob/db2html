@@ -40,18 +40,21 @@ table.bordered td {
     padding: 8px;
 }
 pre, .pre-like {
-    overflow: auto;
+    overflow: hidden; /* was auto */
+    overflow-y: scroll; /* alternative: overflow-y: scroll; overflow-x: auto; */
+    overflow-x: auto;
     max-height: 480px;
+    max-width: 1280px;
     padding: 1em;
     border: 1px dashed #2f6fab;
     color: black;
     background-color: #f9f9f9;
     line-height: 1.1em;
     margin: 0px 20px 10px 20px;
-    white-space: pre-wrap; 
+    white-space: pre;  /* was pre-wrap */
     FONT-FAMILY: "Courier New", Courier, monospace;
 }
-xmp {
+.old_xmp {
     overflow: auto;
     max-height: 480px;
     padding: 1em;
@@ -61,6 +64,21 @@ xmp {
     line-height: 1.1em;
     margin: 0px 20px 10px 20px;
     white-space: pre-wrap; 
+    FONT-FAMILY: "Courier New", Courier, monospace;
+}
+xmp {
+    overflow: hidden; 
+    overflow-y: scroll; 
+    overflow-x: auto;
+    max-height: 480px;
+    max-width: 1280px;
+    padding: 1em;
+    border: 1px dashed #ab6f2f;
+    color: black;
+    background-color: #f9f9f9;
+    line-height: 1.1em;
+    margin: 0px 20px 10px 20px;
+    white-space: pre; 
     FONT-FAMILY: "Courier New", Courier, monospace;
 }
 h1 {

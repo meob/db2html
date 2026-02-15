@@ -71,7 +71,7 @@ Login as db2admin user then
 
 
 # License
-Copyright 1996-2024 mail@meo.bogliolo.name 
+Copyright 1996-2026 mail@meo.bogliolo.name 
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

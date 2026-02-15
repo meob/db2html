@@ -2,7 +2,7 @@ REM Program:	custom_sqlt.sql
 REM 		Oracle SQL Tuning PlugIn
 REM Version:	1.0.0
 REM Author:	Bartolomeo Bogliolo mail@meo.bogliolo.name
-REM             http://www.xenialab.it/meo/web/index5.htm
+REM             https://meoshome.it.eu.org/
 REM		
 REM Date:	1-APR-10 mail@meo.bogliolo.name
 REM		Initial version with useful ADDM queries
@@ -18,9 +18,14 @@ column plan format 999999999999
 column sql_profile format a30
 column sql_text format a180
 column execs format 999,999,999,999
-column ELAPSED_TIME format 999,999,999,999
+column ELAPSED_TIME format 999,999,999,999,999
 column Action_found format a132
-set lines 132
+column profile_name format a30
+column plan_name format a40
+column OPTIMIZER_ENV format a16 trunc
+column QBLOCK_NAME format a16 trunc
+set lines 180
+
 
 set heading off
 SELECT '<p><a id="custP"></a><a id="sqlt"></a><h2>SQL tuning (Tuning Pack based)</h2><pre>' from dual;
@@ -28,38 +33,49 @@ SELECT '<b>SQL Profiles</b>' from dual;
 set heading on
 set long 1000
 column TASK_EXEC_NAME format a16
-column sql_text format a130
+column sql_text format a180
 
-select NAME, TASK_EXEC_NAME, to_char(LAST_MODIFIED,'YYYY-MM-DD HH24:MI:SS') last_modified,
-       type, status, force_matching mtc,
-       substr(SQL_TEXT,1,130) sql_text
+select count(*) sql_profiles, type, status, force_matching
+  from DBA_SQL_PROFILES
+ group by type, status, force_matching
+ order by type, status, force_matching;
+
+select count(*) profiled_sql, sum(EXECUTIONS) execs, sum(ELAPSED_TIME) ELAPSED_TIME, sum(BUFFER_GETS) BUFFER_GETS
+  from v$sql 
+ where sql_profile is not null;
+
+select NAME as profile_name, TASK_EXEC_NAME, to_char(LAST_MODIFIED,'YYYY-MM-DD HH24:MI:SS') last_modified,
+       type, status, force_matching,
+       substr(REPLACE(REPLACE(SQL_TEXT,CHR(10)),CHR(13)) ,1,130) sql_text
   from DBA_SQL_PROFILES;
 
 set heading off
-SELECT '<b>SQL running with profile</b>' from dual;  
+SELECT '</pre> <p><pre><b>SQL running with profile</b>' from dual;  
 set heading on
 column TASK_EXEC_NAME format a16
 column sql_text format a130
 break on sql_id on sql_text
 
+select * from (
 select sql_id, child_number child, plan_hash_value plan, sql_profile, EXECUTIONS execs, ELAPSED_TIME, BUFFER_GETS, sql_text
   from v$sql 
  where sql_profile is not null
-order by sql_id, child_number;
+order by BUFFER_GETS desc, sql_id, child_number)
+where rownum<51;
 CLEAR BREAKS
 
 set heading off
-SELECT '<b>SQL Plan Baselines</b>' from dual;  
+SELECT '</pre><b>SQL Plan Baselines</b><pre>' from dual;  
 set heading on
 
-SELECT sql_handle, plan_name, enabled, accepted, elapsed_time,
+SELECT sql_handle, plan_name, enabled, accepted, elapsed_time, BUFFER_GETS,
        executions, optimizer_cost, to_char(created,'YYYY-MM-DD HH24:MI') created
 FROM   dba_sql_plan_baselines
 WHERE  sql_text NOT LIKE '%dba_sql_plan_baselines%'
 order by sql_handle, executions desc;
 
 set heading off
-SELECT '<b>Auto Tuning Report</b>' from dual;  
+SELECT '<b>Auto Tuning Report</b> (TBD)' from dual;  
 set heading on
 
 variable my_rept CLOB;
@@ -77,7 +93,7 @@ END;
 print :my_rept
 
 set heading off
-SELECT '<b>SQLTUNE_STATISTICS</b>' from dual;  
+SELECT '</pre><b>SQLTUNE_STATISTICS</b><pre>' from dual;  
 set heading on
 
 select * from DBA_SQLTUNE_STATISTICS
