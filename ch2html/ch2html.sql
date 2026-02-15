@@ -2,7 +2,7 @@
 -- Info:    ClickHouse report in HTML
 --          Best with ClickHouse 19 or sup.
 -- Date:    2018-02-14
--- Version: 1.0.13 on 2025-10-31
+-- Version: 1.0.14 on 2026-02-14
 -- Author:  Bartolomeo Bogliolo (meo) mail@meo.bogliolo.name
 -- License: Apache License 2.0
 --
@@ -21,6 +21,7 @@
 --          1.0.11 Latest versions update (2024-02-14). (a) metric_log and asynchronous_metric_log statistics
 --          1.0.12 Latest versions update (2024-08-15). (a) version update (b) version update, formatting (c) version update
 --          1.0.13 New CSS and .JS scripts. Latest versions update (2025-10-31).
+--          1.0.14 Latest versions update (2026-01-31).
 --
 -- Usage: clickhouse-client -mn --ignore-error < ch2html.sql > `hostname`.8123.htm
 
@@ -121,7 +122,7 @@ select '<td>', if(value>=25000000,'Yes','No')
 select '<td>', if(value>=24000000,'Yes','No')
   from system.metrics
  where metric='VersionInteger';
-select '<td>Latest Releases: 25.9.5.21, 25.8.11.66-lts, 25.3.8.23-lts; 24.8.14.39-lts, 24.3.18.7-lts, 23.8.16.40−lts, 23.3.22.3−lts, 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
+select '<td>Latest Releases: 26.1.2.11, 25.12.5.44, 25.8.16.34-lts, 25.3.14.14-lts; 24.8.14.39-lts, 24.3.18.7-lts, 23.8.16.40−lts, 23.3.22.3−lts, 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
 
 select '</table><p>' ;
 
@@ -1075,6 +1076,16 @@ select '<tr><td><b>Parameter</b>',
 select '<tr><td>',name, '<td>',value, '<td>',changed
   from system.settings
  order by changed desc, name;
+select '</table><p><hr>' ;
+
+select '<p><A NAME="par"></a>' ;
+select '<p><table class="bordered"><tr><td><b>Contributors</b> (', count(*) ,')</td></tr>'
+  from system.contributors;
+SELECT '<tr><td>',name AS random_contributors
+  FROM system.contributors
+ WHERE (position(name, 'me') = 1) AND (length(name) >= 3)
+ ORDER BY length(name) ASC, sipHash64(name) ASC
+ LIMIT 5;
 select '</table><p><hr>' ;
 
 select '<p><A NAME="gstat"></a>' ;

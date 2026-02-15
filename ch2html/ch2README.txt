@@ -7,12 +7,13 @@ ch2html works on ClickHouse 18.x version or newer
 Usage:
 1) vi ch2html.sh        # Update the file and change variables accordingly to your configuration
 2) sh ch2html.sh	# Execute the report and generate an HTML file  
-
+ OR
+clickhouse -mn --ignore-error > ch.htm <ch2html.sql
 
 
 License:
 
-Copyright 2018-2024 mail@meo.bogliolo.name 
+Copyright 2018-2026 mail@meo.bogliolo.name 
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
