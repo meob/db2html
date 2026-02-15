@@ -134,10 +134,10 @@ select '<tr><td><b>Version</b>',
 select '<tr><td>', version();
 select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('11.8','11.4','10.11','10.6'), 'YES', 'NO') ; 
 
-select '<td>Latest Releases (MySQL): 9.4.0, <b>8.4.6</b>, <b>8.0.43</b>;';
+select '<td>Latest Releases (MySQL): 9.6.0, <b>8.4.8</b>, <b>8.0.45</b>;';
 select '      9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
 select ' <br>Latest Releases (MariaDB): 12.0, <b>11.8.3</b>, 11.7.2, 11.6.2, 11.5.2, <b>11.4.8</b>, 11.3.2, 11.2.6, ';
-select '     11.1.6, 11.0.6, <b>10.11.14</b>, 10.10.7, <b>10.6.22</b>, 10.5.28, 10.4.34;';
+select '     11.1.6, 11.0.6, <b>10.11.14</b>, 10.10.7, <b>10.6.22</b>, 10.5.29, 10.4.34;';
 select '     10.9.8, 10.8.8, 10.7.8, 10.3.39, 10.2.44, 10.1.48, 10.0.38, 5.5.68';
 select ' <br>Latest Releases (Aurora): 3.08.1-8.0.39, <b>3.05.2-8.0.32</b> (def.), 2.12.4-5.7.44, 1.23.4-5.6 ';
 select '</table><p><hr>' ;
@@ -1153,5 +1153,5 @@ select '<br>More info on';
 select '<a href="http://meoshome.it.eu.org#my">this site</a>' as info;
 select '<script src="util.js"></script>' ;
 
-select '<br> Copyright: 2025 meob - License: GNU General Public License v3.0' as info;
+select '<br> Copyright: 2026 meob - License: GNU General Public License v3.0' as info;
 select '<br> Sources: https://github.com/meob/db2html/ <p></body></html>' as info;

@@ -140,10 +140,10 @@ select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0'), 'YES', 'N
 select ' <td>', if(SUBSTRING_INDEX(version(),'.',2) in ('8.4', '8.0'), 'YES', 'NO') ; -- last2 LTS releases
 
 select ' <td>', if(SUBSTRING_INDEX(version(),'-',1)
-    in ('8.4.5','8.0.42','5.7.44', 
-        '8.4.6','8.0.43','5.7.44'), 'YES', 'NO') ; -- last2 MySQL updates
+    in ('8.4.8','8.0.45','5.7.44', 
+        '8.4.7','8.0.44' ), 'YES', 'NO') ; -- last2 MySQL updates
 
-select '<td>Latest Releases (MySQL): 9.5.0, <b>8.4.7</b>, <b>8.0.44</b>;';
+select '<td>Latest Releases (MySQL): 9.6.0, <b>8.4.8</b>, <b>8.0.45</b>;';
 select '      9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
 select ' <br>Latest Releases (MariaDB): 12.0, <b>11.8.3</b>, 11.7.2, 11.6.2, 11.5.2, <b>11.4.8</b>, 11.3.2, 11.2.6, ';
 select '     11.1.6, 11.0.6, <b>10.11.14</b>, 10.10.7, <b>10.6.22</b>, 10.5.29, 10.4.34;';
@@ -1592,7 +1592,7 @@ select '<div><a href="#top" class="back-to-top">⬆ Back to index</a></div>' as 
 select '<hr><p>Statistics generated on: ', now();
 select '<br>More info on';
 select '<a href="https://www.meo.bogliolo.name/#my">this site</a>' as info;
-select '<br> Copyright: 2025 meob - License: GNU General Public License v3.0' as info;
+select '<br> Copyright: 2026 meob - License: GNU General Public License v3.0' as info;
 select '<br> Sources: https://github.com/meob/db2html/ <p>' as info;
 select '<script src="util.js"></script>' ;
 select '</body></html>' as info;
