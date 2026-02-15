@@ -2,7 +2,7 @@
 -- Info:    PostgreSQL psql report in HTML
 --          Works with PostgreSQL 10 or sup. (tested and updated up to PG 18)
 -- Date:    2008-08-15
--- Version: 1.0.33a on 2025-11-13
+-- Version: 1.0.33d on 2026-02-12
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -51,8 +51,8 @@
 --                 added QueryID column where possible, added operational and performance KPIs
 --                 **NB** To take advantage of the new graphic features style.css and util.js files must be downloaded too.
 --                 (a) more KPIs
---          1.0.33 Latest versions update; fixed EDB casting in KPIs. (a) small KPI fixes
-
+--          1.0.33 Latest versions update; fixed EDB casting bug in KPIs. (a) small KPI fixes (b) overpartitioning check
+--                 (c) Latest versions update, PG19 stub (d) experimental section, PG16 pg_stat_get_backend_subxact
 \set var_as_admin 1
 
 \pset tuples_only
@@ -73,7 +73,7 @@ select '<a href="#ver">Versions</a><br>' ;
 select '<a href="#dbs">Databases</a><br>' ;
 select '<a href="#obj">Schema/Object Matrix</a><br>' ;
 select '<a href="#tbs">Tablespaces</a><br>' ;
-select '<a href="#usg">Space Usage</a> (<a href="#vacuum">VACUUM</a>, <a href="#bloat">Bloat</a>, <a href="#xid">XID</a>)<br>';
+select '<a href="#usg">Space Usage</a> (<a href="#vacuum">VACUUM</a>, <a href="#dead">Dead tuples</a>, <a href="#bloat">Bloat</a>, <a href="#xid">XID</a>)<br>';
 select '<a href="#usr">Users</a><br>' ;
 select '<a href="#sql">Sessions</a>  (<a href="#sql_g">Grouped</a>, <a href="#sql_x">All</a>, <a href="#sql_x">Active</a>) <br>' ;
 select '<a href="#lockd">Locks</a><br>' ;
@@ -98,7 +98,7 @@ select '</table><p><hr>' ;
 select '<p>Report generated on: '|| now();
 select 'on database: <strong>'||current_database()||'</strong>' ;
 select 'by user: '||user ;
-select 'using: <em><strong>pg2html.sql</strong> v.1.0.33a</em>' ;
+select 'using: <em><strong>pg2html.sql</strong> v.1.0.33d</em>' ;
  
 select '<hr><h2 id="status">Summary</h2>';
 select '<table class="bordered"><thead><tr><th scope="col">Item</th><th scope="col">Value</th></tr></thead><tbody>' ;
@@ -222,7 +222,7 @@ SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
   170008,170006,170007,
   180002,180000,180001) THEN 'YES'
   ELSE 'NO' END; -- last2 update
-select '<td>Latest Releases: 18.1, 17.7, 16.10, 15.15, 14.20';
+select '<td>Latest Releases: 18.2, 17.8, 16.12, 15.16, 14.21';
 select '    <br>Latest Unsupported: 13.23, 12.22, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
 select '    8.4.21, 8.3.23, 8.2.23, 8.1.23, 8.0.26; 7.4.30, 6.5.3';
 select '</table><p><hr>';
@@ -537,7 +537,9 @@ select '<tr><th>Pid</th>',
  '<th>Phase</th>',
  '<th>Heap blocks total</th>',
  '<th>Heap blocks scanned</th>',
+ '<th>Scan%</th>',
  '<th>Heap blocks VACUUMed</th>',
+ '<th>VACUUM%</th>',
  '<th>Relation</th>',
  '<th>State</th>',
  '<th>Wait event type</th>',
@@ -546,7 +548,9 @@ select '<tr><th>Pid</th>',
 as info;
 select '<tr><td>'||p.pid, '<td>'||p.phase, 
        '<td class="align-right">'||p.heap_blks_total, '<td class="align-right">'||p.heap_blks_scanned, 
+       '<td class="align-right">'||round(p.heap_blks_scanned*1.0/p.heap_blks_total*100, 1),
        '<td class="align-right">'||p.heap_blks_vacuumed,
+       '<td class="align-right">'||round(p.heap_blks_vacuumed*1.0/p.heap_blks_total*100, 1),
        '<td>'||c.relname, '<td>'||a.state, '<td>'||a.wait_event_type, '<td>'||a.wait_event, 
        '<td>'||a.query
   from pg_stat_progress_vacuum p, pg_stat_activity a, pg_class c
@@ -789,7 +793,7 @@ FROM raw;
 select '</table><p>' ;
 
 
-select '<table id="xid" class="bordered"><caption>Database Max Age</caption>' ;
+select '<table id="xid" class="bordered"><caption>Database Max XID Age</caption>' ;
 select '<tr><th>Database</th>',
  '<th>Max XID age</th>', 
  '<th>% Wraparound</th>';
@@ -800,7 +804,7 @@ SELECT '<tr><td>'||datname||'<td class="align-right">', age(datfrozenxid), '<td 
  limit 32;
 select '</table><p>' ;
 
-select '<table class="bordered"><caption>Object Max Age</caption>' ;
+select '<table class="bordered"><caption>Object Max XID Age</caption>' ;
 select '<tr><th>Object</th>', '<th>Type</th>', '<th>XID age</th>',  '<th>Overdue</th>',  '<th>HR Size</th>', '<th>HR Total Size</th>';
 select  '<th>% AV Aggressive</th>', '<th>% AV Anti-wrap</th>', '<th>% Wraparound</th>';
 SELECT '<tr><td>'|| nspname ||'.'|| relname, '<td>',
@@ -842,19 +846,19 @@ select '<tr><th>Role</th>',
  '<th>Config</th>' 
 as info;
 select '<tr><td>'||rolname,
-	'<td>'||rolcanlogin,
-	'<td>'||rolinherit,
-	'<td>'||rolsuper,
-	'<td>',rolvaliduntil,
-	'<td>',rolconnlimit,
-	'<td>'||rolconfig::text
+       '<td>'||rolcanlogin,
+       '<td>'||rolinherit,
+       '<td>'||rolsuper,
+       '<td>',rolvaliduntil,
+       '<td>',rolconnlimit,
+       '<td>'||rolconfig::text
 from pg_roles
 order by rolcanlogin desc, rolname;
 select '<tr><td>TOTAL Users',
-	'<td class="align-right">'||count(*)
+       '<td class="align-right">'||count(*)
 from pg_roles where rolcanlogin;
 select '<tr><td>TOTAL Roles',
-	'<td class="align-right">'||count(*)
+       '<td class="align-right">'||count(*)
 from pg_roles where not rolcanlogin;
 select '</table><p>' ;
 
@@ -946,17 +950,17 @@ select '<tr><th>User</th>', '<th>Database</th>',
        '<th>Count</th>', '<th>Active</th>', '<th>Idle TX</th>';
 select '<tr><td>',usename,
        '<td>',datname,
- 	'<td>', count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end),
- 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
+        '<td>', count(*),
+        '<td>', sum(case when state='active' then 1 else 0 end),
+        '<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity
  group by usename, datname
  order by 6 desc, 1
  limit 16;
-select 	'<tr><td>TOTAL (', count(distinct usename),
- 	' distinct users)<td><td>'|| count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end),
- 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
+select        '<tr><td>TOTAL (', count(distinct usename),
+        ' distinct users)<td><td>'|| count(*),
+        '<td>', sum(case when state='active' then 1 else 0 end),
+        '<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity;
 select '</table>' ;
 
@@ -966,17 +970,17 @@ select '<tr><th>Address</th>', '<th>Host</th>', '<th>Database</th>',
        '<th>Count</th>', '<th>Active</th>', '<th>Idle TX</th>';
 select '<tr><td>',client_addr, '<td>',client_hostname,
        '<td>',datname,
- 	'<td>', count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end),
- 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
+        '<td>', count(*),
+        '<td>', sum(case when state='active' then 1 else 0 end),
+        '<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity
  group by client_addr, client_hostname, datname
  order by 8 desc, 2
  limit 16;
-select 	'<tr><td>TOTAL (', count(distinct client_addr),
- 	' distinct clients)<td><td><td>'|| count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end),
- 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
+select        '<tr><td>TOTAL (', count(distinct client_addr),
+        ' distinct clients)<td><td><td>'|| count(*),
+        '<td>', sum(case when state='active' then 1 else 0 end),
+        '<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity;
 select '</table>' ;
 
@@ -986,17 +990,17 @@ select '<tr><th>APP</th>', '<th>Database</th>',
        '<th>Count</th>', '<th>Active</th>', '<th>Idle TX</th>';
 select '<tr><td>', replace(replace(application_name,'<','&lt;'), '>','&gt;') appl,
        '<td>',datname,
- 	'<td>', count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end),
- 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
+        '<td>', count(*),
+        '<td>', sum(case when state='active' then 1 else 0 end),
+        '<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity
  group by replace(replace(application_name,'<','&lt;'), '>','&gt;'), datname
  order by 6 desc, 2
  limit 16;
-select 	'<tr><td>TOTAL (', count(distinct application_name),
- 	' distinct applications)<td><td>'|| count(*),
- 	'<td>', sum(case when state='active' then 1 else 0 end),
- 	'<td>', sum(case when state='idle in transaction' then 1 else 0 end)
+select        '<tr><td>TOTAL (', count(distinct application_name),
+        ' distinct applications)<td><td>'|| count(*),
+        '<td>', sum(case when state='active' then 1 else 0 end),
+        '<td>', sum(case when state='idle in transaction' then 1 else 0 end)
   from pg_stat_activity;
 select '</table> </table>' ;
 
@@ -1016,18 +1020,18 @@ select '<thead><tr><th>Pid</th>',
  '<th>Application</th>',
  '<th>Query</th>',
  '<th>Query_ID</th></tr></thead><tbody>';
-select 	'<tr><td>',pid,
- 	'<td>',datname,
- 	'<td>',usename,
- 	'<td>',client_addr,
- 	'<td>',to_char(backend_start, 'YYYY-MM-DD HH24:MI:SS'),
- 	'<td>',state,
- 	'<td>',query_start,
- 	'<td>',now()-query_start,
- 	'<td>',backend_type,
- 	'<td>',replace(replace(application_name,'<','&lt;'), '>','&gt;'),
- 	'<td><div class="truncate">',replace(replace(replace(query,'<','&lt;'), '>','&gt;'),',',', '), '</div>',
- 	'<td>',query_id
+select        '<tr><td>',pid,
+        '<td>',datname,
+        '<td>',usename,
+        '<td>',client_addr,
+        '<td>',to_char(backend_start, 'YYYY-MM-DD HH24:MI:SS'),
+        '<td>',state,
+        '<td>',query_start,
+        '<td>',now()-query_start,
+        '<td>',backend_type,
+        '<td>',replace(replace(application_name,'<','&lt;'), '>','&gt;'),
+        '<td><div class="truncate">',replace(replace(replace(query,'<','&lt;'), '>','&gt;'),',',', '), '</div>',
+        '<td>',query_id
   from pg_stat_activity
  where pid<>pg_backend_pid()
  order by case when state='active' then 0
@@ -1050,16 +1054,16 @@ select '<tr><th>Pid</th>',
  '<th>Backend</th>',
  '<th>Query</th>',
  '<th>query_id</th>';
-select 	'<tr><td>',pid,
- 	'<td>',datname,
- 	'<td>',usename,
- 	'<td>',query_start,
- 	'<td>',state,
- 	'<td>',wait_event,
- 	'<td>',wait_event_type,
- 	'<td>',backend_type,
- 	'<td><div class="truncate">',replace(replace(replace(query,'<','&lt;'), '>','&gt;'),',',', ') as query, '</div>',
- 	'<td>',query_id
+select        '<tr><td>',pid,
+        '<td>',datname,
+        '<td>',usename,
+        '<td>',query_start,
+        '<td>',state,
+        '<td>',wait_event,
+        '<td>',wait_event_type,
+        '<td>',backend_type,
+        '<td><div class="truncate">',replace(replace(replace(query,'<','&lt;'), '>','&gt;'),',',', ') as query, '</div>',
+        '<td>',query_id
   from pg_stat_activity
  where pid<>pg_backend_pid()
    and state='active'
@@ -1078,17 +1082,17 @@ select '<thead><tr><th>Pid</th>',
  '<th>Backend</th>',
  '<th>Application</th>',
  '<th>Query</th></tr></thead><tbody>' ;
-select 	'<tr><td>',pid,
- 	'<td>',datname,
- 	'<td>',usename,
- 	'<td>',client_addr,
- 	'<td>',to_char(backend_start, 'YYYY-MM-DD HH24:MI:SS'),
- 	'<td>',state,
- 	'<td>',query_start,
- 	'<td>',now()-query_start,
- 	'<td>',backend_type,
- 	'<td>',replace(replace(application_name,'<','&lt;'), '>','&gt;'),
- 	'<td><div class="truncate">',replace(replace(replace(query,'<','&lt;'), '>','&gt;'),',',', '), '</div>'
+select        '<tr><td>',pid,
+        '<td>',datname,
+        '<td>',usename,
+        '<td>',client_addr,
+        '<td>',to_char(backend_start, 'YYYY-MM-DD HH24:MI:SS'),
+        '<td>',state,
+        '<td>',query_start,
+        '<td>',now()-query_start,
+        '<td>',backend_type,
+        '<td>',replace(replace(application_name,'<','&lt;'), '>','&gt;'),
+        '<td><div class="truncate">',replace(replace(replace(query,'<','&lt;'), '>','&gt;'),',',', '), '</div>'
   from pg_stat_activity
  where pid<>pg_backend_pid()
  order by case when state='active' then 0
@@ -1115,12 +1119,12 @@ select '<tr><th>Pid</th>',
 as info;
 \if :var_version_14p
 select '<tr><td>',pid, 
-	'<td>',locktype, 
-	'<td>',datname, 
-	'<td>',relname, 
-	'<td>',mode, 
-	'<td>',granted,
-	'<td>',waitstart
+       '<td>',locktype, 
+       '<td>',datname, 
+       '<td>',relname, 
+       '<td>',mode, 
+       '<td>',granted,
+       '<td>',waitstart
   from pg_locks l
   left join pg_catalog.pg_database d on d.oid = l.database
   left join pg_catalog.pg_class r on r.oid = l.relation
@@ -1128,12 +1132,12 @@ select '<tr><td>',pid,
  order by waitstart, pid;
 \else
 select '<tr><td>',pid, 
-	'<td>',locktype, 
-	'<td>',datname, 
-	'<td>',relname, 
-	'<td>',mode, 
-	'<td>',granted,
-	'<td>'
+       '<td>',locktype, 
+       '<td>',datname, 
+       '<td>',relname, 
+       '<td>',mode, 
+       '<td>',granted,
+       '<td>'
   from pg_locks l
   left join pg_catalog.pg_database d on d.oid = l.database
   left join pg_catalog.pg_class r on r.oid = l.relation
@@ -1210,11 +1214,11 @@ select '<tr><th>Pid</th>',
  '<th>Granted</th>'
 as info;
 select '<tr><td>',pid, 
-	'<td>',locktype, 
-	'<td>', datname, 
-	'<td>', relname, 
-	'<td>',mode, 
-	'<td>',granted
+       '<td>',locktype, 
+       '<td>', datname, 
+       '<td>', relname, 
+       '<td>',mode, 
+       '<td>',granted
   from pg_locks l
   left join pg_catalog.pg_database d on d.oid = l.database
   left join pg_catalog.pg_class r on r.oid = l.relation
@@ -1223,11 +1227,11 @@ select '<tr><td>',pid,
 select '<tr><td>...';
 
 select '<tr><td>TOTAL',
-	'<td>',locktype, 
-	'<td>',datname, 
-	'<td>', count(*),
-	'<td>',mode, 
-	'<td>',granted
+       '<td>',locktype, 
+       '<td>',datname, 
+       '<td>', count(*),
+       '<td>',mode, 
+       '<td>',granted
   from pg_locks l
   left join pg_catalog.pg_database d on d.oid = l.database
   left join pg_catalog.pg_class r on r.oid = l.relation
@@ -1242,21 +1246,21 @@ select '<tr><th>Element</th>',
  '<th>Description</th>'
 as info;
 select '<tr><td>'||name,
-	'<td class="align-right">'||case when unit='kB'  then pg_size_pretty(setting::bigint*1024)
+       '<td class="align-right">'||case when unit='kB'  then pg_size_pretty(setting::bigint*1024)
                 when unit='8kB' then pg_size_pretty(setting::bigint*1024*8)
                 when unit='B'   then pg_size_pretty(setting::bigint)
                 when unit='MB'  then pg_size_pretty(setting::bigint*1024*1024)
                 else coalesce(setting||' '||unit,setting) end,
-	'<td>'||short_desc
+       '<td>'||short_desc
 from pg_settings
 where name like '%buffers';
 select '<tr><td>'||name,
-	'<td class="align-right">'||case when unit='kB'  then pg_size_pretty(setting::bigint*1024)
+       '<td class="align-right">'||case when unit='kB'  then pg_size_pretty(setting::bigint*1024)
                 when unit='8kB' then pg_size_pretty(setting::bigint*1024*8)
                 when unit='B'   then pg_size_pretty(setting::bigint)
                 when unit='MB'  then pg_size_pretty(setting::bigint*1024*1024)
                 else coalesce(setting||' '||unit,setting) end,
-	'<td>'||short_desc
+       '<td>'||short_desc
 from pg_settings
 where name like '%mem';
 select '</table><p><hr>' ;
@@ -1278,38 +1282,38 @@ select '<tr><th>Database</th>',
  '<th>Delete</th>',
  '<th> Statistics reset </th>';
 select '<tr><td>'||datname, 
-	'<td class="align-right">'||numbackends, 
-	'<td class="align-right">'||xact_commit, 
-	'<td class="align-right">',
+       '<td class="align-right">'||numbackends, 
+       '<td class="align-right">'||xact_commit, 
+       '<td class="align-right">',
         round(xact_commit/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)),
                                    EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,2),
-	'<td class="align-right">'||xact_rollback, 
-	'<td class="align-right">'||blks_read, 
-	'<td class="align-right">'||blks_hit, 
+       '<td class="align-right">'||xact_rollback, 
+       '<td class="align-right">'||blks_read, 
+       '<td class="align-right">'||blks_hit, 
    '<td class="align-right">'||round((blks_hit)*100.0/nullif(blks_read+blks_hit, 0),2) hit_ratio, 
-	'<td class="align-right">'||tup_returned, 
-	'<td class="align-right">'||tup_fetched, 
-	'<td class="align-right">'||tup_inserted, 
-	'<td class="align-right">'||tup_updated, 
-	'<td class="align-right">'||tup_deleted,
-	'<td>'|| stats_reset
+       '<td class="align-right">'||tup_returned, 
+       '<td class="align-right">'||tup_fetched, 
+       '<td class="align-right">'||tup_inserted, 
+       '<td class="align-right">'||tup_updated, 
+       '<td class="align-right">'||tup_deleted,
+       '<td>'|| stats_reset
 from pg_stat_database
 where datname not like 'template%';
 
-select '<tr><td>TOTAL (', count(*),
-	')<td class="align-right">'||sum(numbackends), 
-	'<td class="align-right">'||sum(xact_commit), 
-	'<td class="align-right"> ',
-	'<td class="align-right">'||sum(xact_rollback), 
-	'<td class="align-right">'||sum(blks_read), 
-	'<td class="align-right">'||sum(blks_hit), 
+select '<tr><td><span class="nobr">TOTAL (', count(*),
+       ')</span> <td class="align-right">'||sum(numbackends), 
+       '<td class="align-right">'||sum(xact_commit), 
+       '<td class="align-right"> ',
+       '<td class="align-right">'||sum(xact_rollback), 
+       '<td class="align-right">'||sum(blks_read), 
+       '<td class="align-right">'||sum(blks_hit), 
    '<td class="align-right">', 
-	'<td class="align-right">'||sum(tup_returned), 
-	'<td class="align-right">'||sum(tup_fetched), 
-	'<td class="align-right">'||sum(tup_inserted), 
-	'<td class="align-right">'||sum(tup_updated), 
-	'<td class="align-right">'||sum(tup_deleted),
-	'<td>'|| min(stats_reset)
+       '<td class="align-right">'||sum(tup_returned), 
+       '<td class="align-right">'||sum(tup_fetched), 
+       '<td class="align-right">'||sum(tup_inserted), 
+       '<td class="align-right">'||sum(tup_updated), 
+       '<td class="align-right">'||sum(tup_deleted),
+       '<td>'|| min(stats_reset)
 from pg_stat_database
 where datname not like 'template%';
 select '</table><p>' ;
@@ -1321,9 +1325,9 @@ select '<tr><th> buffers_clean </th>',
  '<th> buffers_alloc </th>',
  '<th> Statistics reset </th>';
 select '<tr><td class="align-right">'|| buffers_clean, 
-	'<td class="align-right">'|| maxwritten_clean, 
-	'<td class="align-right">'|| buffers_alloc,
-	'<td>'|| stats_reset
+       '<td class="align-right">'|| maxwritten_clean, 
+       '<td class="align-right">'|| buffers_alloc,
+       '<td>'|| stats_reset
  from pg_stat_bgwriter;
 select '</table><p>' ;
 
@@ -1337,14 +1341,14 @@ select '<tr><th> Timed checkpoints </th>',
  '<th> Sync time </th>',
  '<th> Statistics reset </th>';
 select '<tr>',
-	'<td class="align-right">'|| num_timed, 
-	'<td class="align-right">'|| num_requested, 
-	'<td class="align-right">'|| restartpoints_timed, 
-	'<td class="align-right">'|| restartpoints_req, 
-	'<td class="align-right">'|| restartpoints_done, 
-	'<td class="align-right">'|| write_time, 
-	'<td class="align-right">'|| sync_time, 
-	'<td>'|| stats_reset
+ '<td class="align-right">'|| num_timed, 
+ '<td class="align-right">'|| num_requested, 
+ '<td class="align-right">'|| restartpoints_timed, 
+ '<td class="align-right">'|| restartpoints_req, 
+ '<td class="align-right">'|| restartpoints_done, 
+ '<td class="align-right">'|| write_time, 
+ '<td class="align-right">'|| sync_time, 
+ '<td>'|| stats_reset
  from pg_stat_checkpointer;
 \else
 select '<tr><th>checkpoints_timed</th>',
@@ -1358,15 +1362,15 @@ select '<tr><th>checkpoints_timed</th>',
  '<th> checkpoint_sync (s) </th>',
  '<th> Statistics reset </th>';
 select '<tr><td class="align-right">'||checkpoints_timed, 
-	'<td class="align-right">'|| checkpoints_req, 
-	'<td class="align-right">'|| buffers_checkpoint, 
-	'<td class="align-right">'|| buffers_clean, 
-	'<td class="align-right">'|| maxwritten_clean, 
-	'<td class="align-right">'|| buffers_backend, 
-	'<td class="align-right">'|| buffers_alloc,
-	'<td class="align-right">'|| round(checkpoint_write_time/1000),
-	'<td class="align-right">'|| round(checkpoint_sync_time/1000),
-	'<td>'|| stats_reset
+ '<td class="align-right">'|| checkpoints_req, 
+ '<td class="align-right">'|| buffers_checkpoint, 
+ '<td class="align-right">'|| buffers_clean, 
+ '<td class="align-right">'|| maxwritten_clean, 
+ '<td class="align-right">'|| buffers_backend, 
+ '<td class="align-right">'|| buffers_alloc,
+ '<td class="align-right">'|| round(checkpoint_write_time/1000),
+ '<td class="align-right">'|| round(checkpoint_sync_time/1000),
+ '<td>'|| stats_reset
  from pg_stat_bgwriter;
 \endif
 select '</table><p>' ;
@@ -1509,7 +1513,7 @@ select '<tr><td>Long-running active queries',' <td class="align-right">', -- Lon
        '<td> = 0'
   from pg_stat_activity
  where state = 'active'
-   and backend_type not in ('walsender', 'autovacuum worker')
+   and backend_type not in ('walsender', 'autovacuum worker', 'parallel worker')
    and (now() - query_start) > '5 minutes'::interval;
 
 select '<tr><td>Idle in Transaction',' <td class="align-right">', -- Idle in Transaction Count
@@ -2234,7 +2238,8 @@ SELECT '<tr><td>',ni.nspname, '<td>',ct.relname,
   JOIN pg_class cii ON ii.indexrelid=cii.oid
  WHERE NOT i.indisprimary  
     -- ct.relname NOT LIKE 'pg_%'
- ORDER BY ni.nspname, ct.relname, ci.relname;
+ ORDER BY ni.nspname, ct.relname, ci.relname
+ LIMIT 10000;
 select '</tbody></table><p>' ;
 
 select '<p><a id="idx_all"></a>' ;
@@ -2252,13 +2257,17 @@ select '</tbody></table><p></div><hr>' ;
 select '<!-- Report running: '|| now() || ' -->';
 
 select '<h2 id="partdet">Partitioning Statistics</h2>' ;
+select '<a href="#part_tab">Partitioned tables</a>, <a href="#part_det">All partitions</a>, <a href="#over_part">Overpartitioning</a>';
 select '<p><div class="pre-like">' ;
 
-select '<p><table class="bordered"><caption>Partitions</caption><thead><tr><th scope="col">Schema</th><th scope="col">Owner</th><th scope="col">Partitioned Object</th><th scope="col"># Partition</th><th scope="col">Tuples</th></tr></thead><tbody>' ;
-select '<tr><td>'||nspname, '<td>'||rolname,
+select '<p id="part_tab"><table class="bordered sortable sfont"><caption>Partitioned Tables</caption><thead><tr><th scope="col">Owner</th><th scope="col">Schema</th>';
+select ' <th scope="col">Partitioned Object</th><th scope="col"># Partition</th><th scope="col">Tuples</th>';
+select ' <th scope="col">From</th><th scope="col">To</th></tr></thead><tbody>' ;
+select '<tr><td>'||rolname, '<td>'||nspname,
    '<td>', t.relname,
    '<td>', count(distinct(p.relname)),
-   '<td class="align-right">', to_char(sum( case when p.reltuples>0 then p.reltuples else 0 end ),'999G999G999G999G999G999G999')
+   '<td class="align-right">', to_char(sum( case when p.reltuples>0 then p.reltuples else 0 end ),'999G999G999G999G999'),
+   '<td>', min(p.relname), '<td>', max(p.relname)
   from pg_class t, pg_inherits i, pg_class p, pg_roles r, pg_namespace n
  where i.inhparent = t.oid 
    and p.oid = i.inhrelid
@@ -2266,24 +2275,74 @@ select '<tr><td>'||nspname, '<td>'||rolname,
    and t.relnamespace=n.oid
    and p.relkind in ('r', 'p')
  group by nspname, rolname, t.relname
- order by nspname, rolname, t.relname;
-select '</tbody></table>' ;
+ order by rolname, nspname, t.relname;
+select '</tbody></table></div>' ;
 
-select '<p><table class="bordered"><caption sortable>Partitioning Details</caption><thead><tr><th scope="col">Schema</th><th scope="col">Owner</th><th scope="col">Partitioned Object</th><th scope="col">Partition</th><th scope="col">Expression</th><th scope="col">Tuples</th></tr></thead><tbody>' ;
-select '<tr><td>'||nspname, '<td>'||rolname,
+select '<div class="pre-like"><p id="part_det"><table class="bordered sortable sfont"><caption>Partitioning Details</caption><thead><tr><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Partitioned Object</th><th scope="col">Partition</th><th scope="col">Expression</th><th scope="col">Tuples</th></tr></thead><tbody>' ;
+select '<tr><td>'||rolname, '<td>'||nspname,
    '<td>', t.relname,
    '<td>', p.relname,
    '<td>', pg_get_partkeydef ( t.oid ),' ', pg_get_expr(p.relpartbound, p.oid, true),
-   '<td class="align-right">', to_char(p.reltuples,'999G999G999G999G999G999G999')
+   '<td class="align-right">', to_char(p.reltuples,'999G999G999G999G999')
   from pg_class t, pg_inherits i, pg_class p, pg_roles r, pg_namespace n
  where i.inhparent = t.oid 
    and p.oid = i.inhrelid
    and t.relowner=r.oid
    and t.relnamespace=n.oid
    and p.relkind in ('r', 'p')
- order by nspname, rolname, t.relname, pg_get_expr(p.relpartbound, p.oid, true);
+ order by rolname, nspname, t.relname, pg_get_expr(p.relpartbound, p.oid, true)
+ limit 10000;
 select '</tbody></table></div><p>' ;
 
+select '<div class="pre-like"><p id="over_part">';
+select '<table class="bordered"><caption>Overpartitioning check: Empty/Small partitions</caption><thead>';
+select '<tr><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Partitioned Object</th>';
+select '<th scope="col">Partition</th><th scope="col">Tuples</th></tr></thead><tbody>' ;
+select '<tr><td>'||rolname, '<td>'||nspname,
+   '<td>', t.relname,
+   '<td>', p.relname,
+   '<td class="align-right">', to_char(case when p.reltuples>0 then p.reltuples else 0 end,'999G999G999G999G999')
+  from pg_class t, pg_inherits i, pg_class p, pg_roles r, pg_namespace n
+ where i.inhparent = t.oid 
+   and p.oid = i.inhrelid
+   and t.relowner=r.oid
+   and t.relnamespace=n.oid
+   and p.relkind in ('r', 'p')
+   and p.reltuples < 100 *1000
+ order by p.reltuples, rolname, nspname, t.relname, p.relname limit 20;
+select '<tr><td>...';
+select '<tr><td>'||rolname, '<td>'||nspname,
+   '<td>', t.relname,
+   '<td>', p.relname,
+   '<td class="align-right">', to_char(case when p.reltuples>0 then p.reltuples else 0 end,'999G999G999G999G999')
+  from pg_class t, pg_inherits i, pg_class p, pg_roles r, pg_namespace n
+ where i.inhparent = t.oid 
+   and p.oid = i.inhrelid
+   and t.relowner=r.oid
+   and t.relnamespace=n.oid
+   and p.relkind in ('r', 'p')
+   and p.reltuples < 100 *1000
+   and p.reltuples >0
+ order by p.reltuples, rolname, nspname, t.relname, p.relname limit 5;
+select '</tbody></table>' ;
+
+select '<table class="bordered"><caption>Overpartitioning check: Too much partitions</caption><thead>';
+select '<tr><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Partitioned Object</th>';
+select '<th scope="col">Partition#</th></tr></thead><tbody>' ;
+select '<tr><td>'||rolname, '<td>'||nspname,
+   '<td>', t.relname,
+   '<td>', count(*)
+  from pg_class t, pg_inherits i, pg_class p, pg_roles r, pg_namespace n
+ where i.inhparent = t.oid 
+   and p.oid = i.inhrelid
+   and t.relowner=r.oid
+   and t.relnamespace=n.oid
+   and p.relkind in ('r', 'p')
+ group by rolname, nspname, t.relname
+ HAVING COUNT(*) > 100
+ order by count(*) desc limit 20;
+select '</tbody></table>' ;
+select '</div><p>' ;
 
 select '<h2 id="param">Tuning Parameters</h2>' ;
 select '<p><table class="bordered"><caption>Most Important Tuning Parameters</caption><thead><tr><th scope="col">Parameter</th><th scope="col">Value</th><th scope="col">Min</th><th scope="col">Max</th><th scope="col">Unit</th><th scope="col">Context</th><th scope="col">Description</th><th scope="col">Setting</th><th scope="col">Source</th></tr></thead><tbody>' ;
@@ -2312,7 +2371,7 @@ select '</tbody></table><p><hr>' ;
 
 
 select '<h2 id="big">Biggest Objects</h2>' ;
-select '<p><table class="bordered"><caption>Biggest Objects</caption><thead><tr><th scope="col">Object</th><th scope="col">Type</th><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Rows</th><th scope="col">Size (relpages main)</th><th scope="col">Bytes (relation)</th><th scope="col">HR Size (total)</th></tr></thead><tbody>' ;
+select '<p><table class="bordered"><caption>Biggest Objects</caption><thead><tr><th scope="col">Object</th><th scope="col">Type</th><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Rows</th><th scope="col">Size (main)</th><th scope="col">Bytes</th><th scope="col">HR Size</th><th scope="col">HR Size (total)</th></tr></thead><tbody>' ;
 select '<tr><td>'||relname,
  '<td>'||case WHEN relkind='r' THEN 'Table' 
     WHEN relkind='i' THEN 'Index'
@@ -2322,6 +2381,7 @@ select '<tr><td>'||relname,
  '<td class="align-right">'||to_char(reltuples,'999G999G999G999G999G999G999'),
  '<td class="align-right">'||to_char(relpages::INT8*8*1024,'999G999G999G999G999G999G999'),
  '<td class="align-right">'||to_char(pg_relation_size(pg_class.oid),'999G999G999G999G999G999G999'),
+ '<td class="align-right">'||pg_size_pretty(pg_relation_size(pg_class.oid)),
  '<td class="align-right">'||case WHEN relkind='r' THEN pg_size_pretty(pg_total_relation_size(pg_class.oid)) ELSE '' end
   from pg_class, pg_roles, pg_catalog.pg_namespace n
  where relowner=pg_roles.oid
@@ -2331,15 +2391,15 @@ select '<tr><td>'||relname,
 select '</tbody></table><p>' ;
 
 select '<p><a id="bigp"></a>'  ;
-select '<p><table class="bordered"><caption>Biggest Partitioned Objects</caption><thead><tr><th scope="col">Object</th><th scope="col">Hierarchy level</th><th scope="col">Partition#</th><th scope="col">HR Size</th><th scope="col">Bytes</th></tr></thead><tbody>' ;
+select '<p><table class="bordered"><caption>Biggest Partitioned Objects</caption><thead><tr><th scope="col">Object</th><th scope="col">Hierarchy level</th><th scope="col">Partition#</th><th scope="col">Rows</th><th scope="col">Bytes</th><th scope="col">HR Size</th></tr></thead><tbody>' ;
 WITH RECURSIVE tabs AS (
-     SELECT c.oid AS parent, c.oid AS relid, 1 AS level
+     SELECT c.oid AS parent, c.oid AS relid, 1 AS level, c.reltuples as rows
        FROM pg_catalog.pg_class c
        LEFT JOIN pg_catalog.pg_inherits AS i ON c.oid = i.inhrelid
       WHERE c.relkind IN ('p', 'r')
         AND i.inhrelid IS NULL
       UNION ALL
-     SELECT p.parent AS parent, c.oid AS relid, p.level + 1 AS level
+     SELECT p.parent AS parent, c.oid AS relid, p.level + 1 AS level, c.reltuples as rows
        FROM tabs AS p
        LEFT JOIN pg_catalog.pg_inherits AS i ON p.relid = i.inhparent
        LEFT JOIN pg_catalog.pg_class AS c ON c.oid = i.inhrelid AND c.relispartition
@@ -2348,8 +2408,9 @@ WITH RECURSIVE tabs AS (
 SELECT '<tr><td>',parent ::REGCLASS AS table_name, 
        '<td class="align-right">',max(level)-1 AS hierarchy_level,
        '<td class="align-right">',count(*) AS partition_count,
-       '<td class="align-right">',pg_size_pretty(sum(pg_total_relation_size(relid))) AS pretty_total_size,
-       '<td class="align-right">',to_char(sum(pg_total_relation_size(relid)),'999G999G999G999G999G999G999') AS total_size
+       '<td class="align-right">',to_char(sum(case level when 1 then rows else 0 end),'999G999G999G999G999G999G999') AS rows,
+       '<td class="align-right">',to_char(sum(pg_total_relation_size(relid)),'999G999G999G999G999G999G999') AS total_size,
+       '<td class="align-right">',pg_size_pretty(sum(pg_total_relation_size(relid))) AS pretty_total_size
        -- array_agg(relid :: REGCLASS) AS all_partitions
   FROM tabs
  GROUP BY parent
@@ -2363,12 +2424,14 @@ select '<p><table class="bordered"><caption>Biggest TOASTs</caption>' ;
 select '<tr><th>TOAST</th>',
  '<th>Owner</th>', '<th>Table</th>',
  '<th>Chunks</th>',
- '<th>Bytes</th>'
+ '<th> Bytes </th>',
+ '<th>HR Size</th>'
 as info;
 select '<tr><td>'||t.relname,
  '<td>'||rolname,  '<td>'||n.nspname||'.'||r.relname,
  '<td class="align-right">'||to_char(t.reltuples,'999G999G999G999G999G999G999'),
- '<td class="align-right">'||to_char(pg_relation_size(t.oid),'999G999G999G999G999G999G999')
+ '<td class="align-right">'||to_char(pg_relation_size(t.oid),'999G999G999G999G999G999G999'),
+ '<td class="align-right">'||pg_size_pretty(pg_relation_size(t.oid))
   from pg_class t, pg_roles, pg_catalog.pg_namespace n, pg_class r
  where t.relowner=pg_roles.oid
    and n.oid=r.relnamespace
@@ -2533,11 +2596,11 @@ select '<p><a id="confl"></a><p>' ;
 select '<p><table class="bordered"><caption>Secondary Database Conflicts</caption>' ;
 select '<thead><tr><th scope="col">Database</th><th scope="col">Conflicts on: tablespace</th><th scope="col">Conflicts on: lock</th><th scope="col">Conflicts on: snapshot</th><th scope="col">Conflicts on: bufferpin</th><th scope="col">Conflicts on: deadlock</th></tr></thead><tbody>' ;
 select '<tr><td>'||c.datname, 
-	'<td class="align-right">'|| confl_tablespace, 
-	'<td class="align-right">'|| confl_lock, 
-	'<td class="align-right">'|| confl_snapshot, 
-	'<td class="align-right">'|| confl_bufferpin, 
-	'<td class="align-right">'|| confl_deadlock
+       '<td class="align-right">'|| confl_tablespace, 
+       '<td class="align-right">'|| confl_lock, 
+       '<td class="align-right">'|| confl_snapshot, 
+       '<td class="align-right">'|| confl_bufferpin, 
+       '<td class="align-right">'|| confl_deadlock
   from pg_stat_database_conflicts c
  where c.datname not like 'template%';
 select '</tbody></table><p>' ;
@@ -2545,7 +2608,7 @@ select '</tbody></table><p>' ;
 
 select '<p><table class="bordered"><caption>Logical Replication - Subscriptions</caption>' ;
 select '<thead><tr><th scope="col">Subscription Name</th><th scope="col">Pid</th><th scope="col">Relation OID</th><th scope="col">Received</th><th scope="col">Last Message Send</th><th scope="col">Last Message Receipt</th><th scope="col">Latest location</th><th scope="col">Latest time</th></tr></thead><tbody>' ;
-select '<tr><td>',subname, '<td>',pid, '<td>',relid, '<td>',received_lsn, '<td>',last_msg_send_time, 	
+select '<tr><td>',subname, '<td>',pid, '<td>',relid, '<td>',received_lsn, '<td>',last_msg_send_time,        
        '<td>',last_msg_receipt_time, '<td>',latest_end_lsn, '<td>',latest_end_time
   from pg_stat_subscription
  order by subname;
@@ -2931,7 +2994,7 @@ select '</div></table><p><hr>' ;
 
 
 select '<p><a id="histograms"></a>'  ;
-select '<p><table class="bordered"><tr><th>Column statistics histograms (can be quite large: enable only on most interesting objects)</th></tr>';
+select '<p><table class="bordered"><tr><th>Custom/Extended column statistics (histograms can be quite large: enable only on most interesting objects)</th></tr>';
 select '<tr><td><p><div class="pre-like">' ;
 \pset tuples_only
 \a
@@ -2946,22 +3009,6 @@ select attrelid::regclass as tab_name, attname as col_name, attstattarget as cus
   from pg_attribute 
  where attstattarget not in (0,-1)
  order by tab_name, attname limit 100;
-
--- Collected histograms
-select t2.*
-  from (
-  select row_number() over (partition by tab_name, col_name order by freq desc) as sample, tstat.*
-    from (
-    select schemaname||'.'||tablename as tab_name, attname as col_name, avg_width,
-           array_dims(coalesce(most_common_vals::text::text[], array['-'])),
-           substr(unnest(coalesce(most_common_vals::text::text[], array['-'])), 1,30) val, 
-           unnest(coalesce(most_common_freqs::text::text[], array['0'])) freq, null_frac
-      from pg_stats
-     where schemaname not in ('pg_catalog', 'information_schema')
-       and tablename in ('pgbench_accounts')
-     order by 1, 2, 6 desc ) tstat ) t2
- where sample<=10
-order by 2,3,7 desc;
 
 -- Extended Statistics
 SELECT es.stxnamespace::pg_catalog.regnamespace::text || '.'||
@@ -2980,6 +3027,22 @@ SELECT es.stxnamespace::pg_catalog.regnamespace::text || '.'||
        CASE WHEN 'm' = any(es.stxkind) THEN 'X' END AS "MCV"
   FROM pg_catalog.pg_statistic_ext es
  ORDER BY 1, 2;
+
+-- Collected histograms (enable only on interesting tables)
+select t2.*
+  from (
+  select row_number() over (partition by tab_name, col_name order by freq desc) as sample, tstat.*
+    from (
+    select schemaname||'.'||tablename as tab_name, attname as col_name, avg_width,
+           array_dims(coalesce(most_common_vals::text::text[], array['-'])),
+           substr(unnest(coalesce(most_common_vals::text::text[], array['-'])), 1,30) val, 
+           unnest(coalesce(most_common_freqs::text::text[], array['0'])) freq, null_frac
+      from pg_stats
+     where schemaname not in ('pg_catalog', 'information_schema')
+       and tablename in ('pgbench_accounts')
+     order by 1, 2, 6 desc ) tstat ) t2
+ where sample<=10
+order by 2,3,7 desc;
 
 -- Collected histograms for extended statistics
 select t2.*
@@ -3179,6 +3242,14 @@ select '<tr><td><div class="pre-like">' ;
 select backend_type, object, context, reads, writes, extends,
        op_bytes, evictions, reuses, fsyncs
   from pg_stat_io;
+
+SELECT pg_stat_get_backend_pid(bid) AS pid,
+       s.subxact_count, s.subxact_overflow,
+       pg_stat_get_backend_activity(bid) AS query
+  FROM pg_stat_get_backend_idset() AS bid
+  JOIN LATERAL pg_stat_get_backend_subxact(bid) AS s ON TRUE
+ WHERE s.subxact_count > 0;
+
 \pset tuples_only
 \a
 select '</div></table><p>' ;
@@ -3242,12 +3313,125 @@ select '<tr><td><div class="pre-like">' ;
 \pset tuples_only
 \a
 
---
-
 \pset tuples_only
 \a
 select '</div></table><p>' ;
 \endif
+
+
+select '<p><a id="todo"></a>'  ;
+select '<p><table class="bordered"><tr><th>Experimental/TODO</th></tr>';
+select '<tr><td><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+select name || ' SLRU Cache Hit %',  -- SLRU Cache Hit
+       round(100.0 * blks_hit / (blks_hit + blks_read), 2) value
+  from pg_stat_slru
+ where blks_read>100;
+
+WITH extreme_values AS (
+    SELECT min(xmin_val) as global_min_xmin FROM (
+        SELECT backend_xmin::text::bigint as xmin_val FROM pg_stat_activity WHERE backend_xmin IS NOT NULL
+        UNION ALL
+        SELECT transaction::text::bigint FROM pg_prepared_xacts
+    ) s
+)
+SELECT 'SESSION' as type, pid, state,
+       backend_xmin as oldest_xmin,
+       age(backend_xmin) as xmin_age,
+       now() - xact_start AS duration,
+       left(query, 20) as identification
+  FROM pg_stat_activity, extreme_values
+ WHERE backend_xmin::text::bigint = extreme_values.global_min_xmin
+ UNION ALL
+SELECT 'PREPARED' as type, null as pid, 'N/A' as state,
+       transaction as oldest_xmin,
+       age(transaction) as xmin_age,
+       now() - prepared AS duration,
+       'GID: ' || gid as identification
+  FROM pg_prepared_xacts, extreme_values
+ WHERE transaction::text::bigint = extreme_values.global_min_xmin;
+
+SELECT slot_name, 
+       active, 
+       active_pid,
+       xmin AS slot_xmin, 
+       age(xmin) AS xmin_age,
+       catalog_xmin,
+       age(catalog_xmin) AS catalog_age,
+       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS replication_lag_size
+FROM pg_replication_slots 
+ORDER BY age(xmin) DESC;
+
+SELECT wait_event_type, wait_event, count(*) 
+  FROM pg_stat_activity
+ group by wait_event_type, wait_event
+ order by 3 desc,1,2;
+
+SELECT  
+    left(query, 20) as subtx_query, 
+    calls, 
+    rows,
+    round(total_exec_time::numeric, 2) as total_ms,
+    round(mean_exec_time::numeric, 2) as avg_ms,
+    shared_blks_read
+FROM pg_stat_statements
+WHERE query ILIKE '%SAVEPOINT%' 
+   OR query ILIKE '%EXCEPTION%'
+   OR query ILIKE '%ROLLBACK TO%'
+ORDER BY calls DESC
+LIMIT 10;
+
+SELECT 
+    left(query, 20) as jittering_query, 
+    calls, 
+    round(mean_exec_time::numeric, 2) as avg_ms,
+    round(stddev_exec_time::numeric, 2) as jitter_stddev, 
+    round((stddev_exec_time / NULLIF(mean_exec_time, 0) * 100)::numeric, 2) as variability_pct,
+    round(max_exec_time::numeric, 2) as max_ms
+FROM pg_stat_statements 
+WHERE calls > 100
+ORDER BY jitter_stddev DESC 
+LIMIT 10;
+
+WITH base_stats AS (
+    SELECT 
+        sum(total_exec_time) OVER () as global_total_time,
+        total_exec_time,
+        mean_exec_time,
+        stddev_exec_time,
+        calls,
+        wal_bytes,
+        query
+    FROM pg_stat_statements
+    JOIN pg_roles ON (pg_stat_statements.userid = pg_roles.oid)
+    WHERE pg_roles.rolname NOT IN ('postgres', 'rdsadmin', 'cloudsqladmin')
+      AND query NOT LIKE 'VACUUM%'
+      AND query NOT LIKE 'ANALYZE%'
+),
+ranked_stats AS (
+    SELECT *,
+        sum(total_exec_time) OVER (ORDER BY total_exec_time DESC) / NULLIF(global_total_time, 0) as cumulative_weight
+    FROM base_stats
+),
+filtered_stats AS (
+    SELECT * FROM ranked_stats 
+    WHERE cumulative_weight <= 0.95 
+      AND global_total_time > 600000 --  600.000 ms 
+)
+SELECT round( (sum(stddev_exec_time * calls) / 
+               NULLIF(sum(mean_exec_time * calls), 0))::numeric, 3) as db_jitter_kpi,    
+       round(sum(wal_bytes)::numeric / NULLIF(sum(calls), 0), 2) as avg_wal_bytes_per_call,    
+       count(*) as queries,    
+       round((global_total_time / 3600000)::numeric, 2) as workload_hours
+FROM filtered_stats
+group by global_total_time
+HAVING sum(calls) > 0;
+
+\pset tuples_only
+\a
+select '</div></table><p>' ;
 
 
 select '<hr>';
@@ -3736,7 +3920,7 @@ select '<p><hr>' ;
 select '<p>Statistics generated on: '|| current_date || ' ' ||localtime ;
 select '<br>More info on' ;
 select '<a href="https://www.meo.bogliolo.name#post">this site</a>' ;
-select '<br> Copyright: 2025 meob - License: GNU General Public License v3.0' ;
+select '<br> Copyright: 2026 meob - License: GNU General Public License v3.0' ;
 select '<br> Sources: https://github.com/meob/db2html/ <p>' ;
 select '<script src="util.js"></script>' ;
 
