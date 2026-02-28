@@ -2,7 +2,7 @@
 -- Info:    PostgreSQL psql report in HTML
 --          Works with PostgreSQL 10 or sup. (tested and updated up to PG 18)
 -- Date:    2008-08-15
--- Version: 1.0.33d on 2026-02-12
+-- Version: 1.0.33e on 2026-02-14
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -53,6 +53,7 @@
 --                 (a) more KPIs
 --          1.0.33 Latest versions update; fixed EDB casting bug in KPIs. (a) small KPI fixes (b) overpartitioning check
 --                 (c) Latest versions update, PG19 stub (d) experimental section, PG16 pg_stat_get_backend_subxact
+--                 (e) unexepected version update
 \set var_as_admin 1
 
 \pset tuples_only
@@ -98,7 +99,7 @@ select '</table><p><hr>' ;
 select '<p>Report generated on: '|| now();
 select 'on database: <strong>'||current_database()||'</strong>' ;
 select 'by user: '||user ;
-select 'using: <em><strong>pg2html.sql</strong> v.1.0.33d</em>' ;
+select 'using: <em><strong>pg2html.sql</strong> v.1.0.33e</em>' ;
  
 select '<hr><h2 id="status">Summary</h2>';
 select '<table class="bordered"><thead><tr><th scope="col">Item</th><th scope="col">Value</th></tr></thead><tbody>' ;
@@ -216,13 +217,13 @@ SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num')
   ELSE 'NO' END; -- last2 release
 SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
   in (90624,100023,110022,120022, 130023,
-  140021,140019,140020,
-  150016,150014,150015,
-  160011,160009,160010,
-  170008,170006,170007,
-  180002,180000,180001) THEN 'YES'
+  140021,140022,140020,
+  150016,150017,150015,
+  160012,160013,160011,
+  170008,170009,170007,
+  180002,180003,180001) THEN 'YES'
   ELSE 'NO' END; -- last2 update
-select '<td>Latest Releases: 18.2, 17.8, 16.12, 15.16, 14.21';
+select '<td>Latest Releases: 18.3, 17.9, 16.13, 15.17, 14.22';
 select '    <br>Latest Unsupported: 13.23, 12.22, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
 select '    8.4.21, 8.3.23, 8.2.23, 8.1.23, 8.0.26; 7.4.30, 6.5.3';
 select '</table><p><hr>';
@@ -867,11 +868,11 @@ select '<tr><th>Object Type</th>', '<th>Name</th>', '<th>Owner</th>';
 select '<tr><td>Database', '<td>', datname, '<td>',datdba::regrole::text
   from pg_database
  where not datistemplate
-   and datdba::regrole::text not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin')
+   and datdba::regrole::text not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
  order by datname;
 select '<tr><td>Schema', '<td>', nspname, '<td>',nspowner::regrole::text
   from pg_namespace
- where nspowner::regrole::text not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin')
+ where nspowner::regrole::text not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
  order by nspname;
 select '</table></div>' ;
 
@@ -890,7 +891,7 @@ select '<tr><th>Grantee</th>', '<th>Schema</th>', '<th>Count</th>', '<th>Privile
 with grt as (
 select grantee as gr, table_schema ts, privilege_type pt, count(*) as cnt
   from information_schema.table_privileges
- where grantee not in ('postgres', 'pg_monitor', 'rdsadmin', 'enterprisedb')
+ where grantee not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
    and table_schema not in ('pg_catalog', 'information_schema', 'sys')
    and table_schema not like 'pg_temp_%'
  group by grantee, table_schema, privilege_type
@@ -1523,12 +1524,19 @@ select '<tr><td>Idle in Transaction',' <td class="align-right">', -- Idle in Tra
  where state='idle in transaction'
    and (now() - state_change) > '30 second'::interval;
 
-select '<tr><td>Oldest transaction age (s)',' <td class="align-right">',  -- Oldest transaction age (s)
+select '<tr><td>Longest running query (s)',' <td class="align-right">',  -- Longest running query (s)
        round(EXTRACT(EPOCH FROM (now() - min(query_start)))::numeric, 2),
        '<td> &lt; 3600'
   from pg_stat_activity
  where state='active'
    and pid <> pg_backend_pid()
+   and backend_type <> 'walsender';
+
+select '<tr><td>Oldest transaction age (s)',' <td class="align-right">',  -- Oldest transaction age (s)
+       round(EXTRACT(EPOCH FROM (now() - min(xact_start)))::numeric, 2),
+       '<td> &lt; 3600'
+  from pg_stat_activity
+ where pid <> pg_backend_pid()
    and backend_type <> 'walsender';
 
 select '<tr><td>Invalid indexes',' <td class="align-right">', -- Invalid indexes
@@ -1838,7 +1846,7 @@ SELECT '<tr><td>'||replace(substring(replace(replace(query,'<','&lt;'), '>','&gt
 select '</tbody></table><p>' ;
 
 select '<p><a id="slow"></a><p>' ;
-select '<p><table class="bordered sfont"><caption>Slowest Statements</caption><thead><tr><th scope="col">Query</th><th scope="col">User</th><th scope="col">Calls</th><th scope="col">Average (sec.)</th><th scope="col">Max (sec.)</th><th scope="col">Total Time</th><th scope="col">Blks read /Call</th><th scope="col">Rows /Call</th><th scope="col">Hit Ratio%</th>' ;
+select '<p><table class="bordered sfont"><caption>Slowest Statements</caption><thead><tr><th scope="col">Query</th><th scope="col">User</th><th scope="col">Calls</th><th scope="col">Average (sec.)</th><th scope="col">Max (sec.)</th><th scope="col">Total Time</th><th scope="col">Reads /Call</th><th scope="col">Rows /Call</th><th scope="col">Hit Ratio%</th>' ;
 \if :var_version_13p
 SELECT '<th>WAL MB</th> <th>tmp MB</th> <th>QueryID</th> </thead><tbody>';
 SELECT '<tr><td><div class="truncate">'||replace(substring(replace(replace(query,'<','&lt;'), '>','&gt;'),1,8192),',',', '),
@@ -1846,7 +1854,8 @@ SELECT '<tr><td><div class="truncate">'||replace(substring(replace(replace(query
   '<td class="align-right">'||round((total_exec_time::numeric / nullif(calls::numeric, 0))/1000,3),
   '<td class="align-right">'||round((max_exec_time::numeric)/1000,3),
   '<td class="align-right">'||round((total_exec_time::numeric)/1000,3),
-  '<td class="align-right">'||round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0)),2),
+  '<td class="align-right"><span class="nobr">'||pg_size_pretty( coalesce(round(((shared_blks_hit + shared_blks_read)::numeric*8192 / nullif(calls::numeric, 0)),0),0) ),
+                          '</span>',
   '<td class="align-right">'||round((rows::numeric / nullif(calls::numeric, 0)),2),
   '<td class="align-right">'||coalesce(round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2),0)  AS hit_percent,
   '<td class="align-right">'||round((wal_bytes::numeric)/(1024*1024),0),
@@ -1864,7 +1873,8 @@ SELECT '<tr><td>'||replace(substring(replace(replace(query,'<','&lt;'), '>','&gt
   '<td class="align-right">'||round((total_time::numeric / nullif(calls::numeric, 0))/1000,3),
   '<td class="align-right">'||round((max_time::numeric)/1000,3),
   '<td class="align-right">'||round((total_time::numeric)/1000,3),
-  '<td class="align-right">'||coalesce(round(((shared_blks_hit + shared_blks_read)::numeric / nullif(calls::numeric, 0)),2),0),
+  '<td class="align-right"><span class="nobr">'||pg_size_pretty( coalesce(round(((shared_blks_hit + shared_blks_read)::numeric*8192 / nullif(calls::numeric, 0)),0),0) ),
+                          '</span>',
   '<td class="align-right">'||round((rows::numeric / nullif(calls::numeric, 0)),2),
   '<td class="align-right">'||round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2)  AS hit_percent
   FROM pg_stat_statements 
@@ -2491,7 +2501,7 @@ select '<tr><td>'||o.rolname, '<td>'||n.nspname, '<td class="align-right">'||cou
    and not r.relispartition
    and a.attnum > 0
    and not a.attisdropped
-   and o.rolname not in ('postgres', 'rdsadmin', 'enterprisedb', 'admin')
+   and o.rolname not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
    and n.nspname not in ('information_schema', 'pg_catalog')
  group by o.rolname, n.nspname
  order by o.rolname, n.nspname;
@@ -2510,7 +2520,7 @@ select '<tr><td>'||o.rolname, '<td>'||n.nspname, '<td>'||t.typname, '<td class="
    and not r.relispartition
    and a.attnum > 0
    and not a.attisdropped
-   and o.rolname not in ('postgres', 'rdsadmin', 'enterprisedb', 'admin')
+   and o.rolname not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
    and n.nspname not in ('information_schema', 'pg_catalog')
  group by o.rolname, n.nspname, t.typname
  order by o.rolname, n.nspname, t.typname;
@@ -2568,12 +2578,12 @@ select '<tr><td>',client_addr, '<td>', state, '<td>', sync_state, '<td>', txid_c
 select '</tbody></table>' ;
 
 select '<p><table class="bordered"><caption>Replication Slots</caption>' ;
-select '<thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Active</th><th scope="col">XMIN</th><th scope="col">Catalog XMIN</th><th scope="col">Restart LSN</th></tr></thead><tbody>' ;
+select '<thead><tr><th scope="col">Name</th><th scope="col">Type</th><th scope="col">Active</th><th scope="col">XMIN</th><th scope="col">Age</th>';
+select ' <th scope="col">Catalog XMIN</th><th scope="col">Restart LSN</th></tr></thead><tbody>' ;
 select '<tr><td>',slot_name, '<td>', slot_type, '<td>', active,
-       '<td>', xmin, '<td>', catalog_xmin, '<td>', restart_lsn
+       '<td>', xmin, '<td>', age(xmin), '<td>', catalog_xmin, '<td>', restart_lsn
   from pg_replication_slots;
 select '</tbody></table>' ;
-
 
 select '<p><table class="bordered"><caption>Secondary Server Statistics</caption>' ;
 select '<thead><tr><th scope="col">Last Replication</th><th scope="col">Replication Delay</th><th scope="col">Current Snapshot</th><th scope="col">Receive loc.</th><th scope="col">Replay loc.</th></tr></thead><tbody>' ;
@@ -3325,11 +3335,13 @@ select '<tr><td><div class="pre-like">' ;
 \pset tuples_only
 \a
 
-select name || ' SLRU Cache Hit %',  -- SLRU Cache Hit
+-- SLRU Caches Hit
+select name || ' SLRU Cache Hit %' as caches,  
        round(100.0 * blks_hit / (blks_hit + blks_read), 2) value
   from pg_stat_slru
  where blks_read>100;
 
+-- Max age in sessions or in prepared transactions
 WITH extreme_values AS (
     SELECT min(xmin_val) as global_min_xmin FROM (
         SELECT backend_xmin::text::bigint as xmin_val FROM pg_stat_activity WHERE backend_xmin IS NOT NULL
@@ -3345,14 +3357,21 @@ SELECT 'SESSION' as type, pid, state,
   FROM pg_stat_activity, extreme_values
  WHERE backend_xmin::text::bigint = extreme_values.global_min_xmin
  UNION ALL
-SELECT 'PREPARED' as type, null as pid, 'N/A' as state,
+SELECT 'PREPARED TX' as type, null as pid, 'N/A' as state,
        transaction as oldest_xmin,
        age(transaction) as xmin_age,
        now() - prepared AS duration,
        'GID: ' || gid as identification
   FROM pg_prepared_xacts, extreme_values
  WHERE transaction::text::bigint = extreme_values.global_min_xmin;
+SELECT 'REPLICATION SLOT' as type, null as pid, null as state,
+       min(xmin::text::bigint) as oldest_xmin,
+       min(age(xmin)) as xmin_age,
+       null AS duration,
+       null as identification
+  FROM pg_replication_slots;
 
+-- Max age in replication slots
 SELECT slot_name, 
        active, 
        active_pid,
@@ -3361,40 +3380,46 @@ SELECT slot_name,
        catalog_xmin,
        age(catalog_xmin) AS catalog_age,
        pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS replication_lag_size
-FROM pg_replication_slots 
+  FROM pg_replication_slots
 ORDER BY age(xmin) DESC;
 
+-- Sessions grouped by wait event
 SELECT wait_event_type, wait_event, count(*) 
   FROM pg_stat_activity
  group by wait_event_type, wait_event
  order by 3 desc,1,2;
 
-SELECT  
-    left(query, 20) as subtx_query, 
+-- SAVEPOINT or subtrasactions statements
+SELECT queryid,
     calls, 
     rows,
     round(total_exec_time::numeric, 2) as total_ms,
     round(mean_exec_time::numeric, 2) as avg_ms,
-    shared_blks_read
+    shared_blks_read,
+    left(query, 30) as subtx_query
 FROM pg_stat_statements
 WHERE query ILIKE '%SAVEPOINT%' 
    OR query ILIKE '%EXCEPTION%'
    OR query ILIKE '%ROLLBACK TO%'
+   OR query ILIKE '%COMMIT%'
 ORDER BY calls DESC
 LIMIT 10;
 
-SELECT 
-    left(query, 20) as jittering_query, 
+-- Query jittering
+SELECT queryid,
     calls, 
+    round(min_exec_time::numeric, 2) as min_ms,
+    round(max_exec_time::numeric, 2) as max_ms,
     round(mean_exec_time::numeric, 2) as avg_ms,
     round(stddev_exec_time::numeric, 2) as jitter_stddev, 
     round((stddev_exec_time / NULLIF(mean_exec_time, 0) * 100)::numeric, 2) as variability_pct,
-    round(max_exec_time::numeric, 2) as max_ms
+    left(query, 30) as jittering_query
 FROM pg_stat_statements 
 WHERE calls > 100
 ORDER BY jitter_stddev DESC 
 LIMIT 10;
 
+-- Jittering KPI
 WITH base_stats AS (
     SELECT 
         sum(total_exec_time) OVER () as global_total_time,
@@ -3406,7 +3431,7 @@ WITH base_stats AS (
         query
     FROM pg_stat_statements
     JOIN pg_roles ON (pg_stat_statements.userid = pg_roles.oid)
-    WHERE pg_roles.rolname NOT IN ('postgres', 'rdsadmin', 'cloudsqladmin')
+    WHERE pg_roles.rolname NOT IN ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
       AND query NOT LIKE 'VACUUM%'
       AND query NOT LIKE 'ANALYZE%'
 ),
@@ -3418,7 +3443,7 @@ ranked_stats AS (
 filtered_stats AS (
     SELECT * FROM ranked_stats 
     WHERE cumulative_weight <= 0.95 
-      AND global_total_time > 600000 --  600.000 ms 
+      AND global_total_time > 600000  --  600.000 ms, 10 minutes
 )
 SELECT round( (sum(stddev_exec_time * calls) / 
                NULLIF(sum(mean_exec_time * calls), 0))::numeric, 3) as db_jitter_kpi,    
@@ -3531,7 +3556,7 @@ select o.rolname as owner, n.nspname as schema, r.relname as table,
    and not r.relispartition
    and a.attnum > 0
    and not a.attisdropped
-   and o.rolname not in ('postgres', 'rdsadmin', 'enterprisedb', 'admin')
+   and o.rolname not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
    and n.nspname not in ('information_schema', 'pg_catalog')
    and t.typname in ('vector', 'halfvec', 'sparsevec', 'bit')
  order by o.rolname, n.nspname, t.typname;
@@ -3865,7 +3890,9 @@ select dbid, queryid, calls, total_exec_time, blk_read_time, blk_write_time,
 select *
   from google_db_advisor_workload_report;
 select *
- from google_db_advisor_recommend_indexes();
+  from google_db_advisor_recommend_indexes;
+select *
+  from google_db_advisor_recommended_indexes_to_drop;
 
 \if :opt_alloy_col
 SELECT *
