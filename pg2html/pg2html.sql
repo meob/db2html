@@ -2,7 +2,7 @@
 -- Info:    PostgreSQL psql report in HTML
 --          Works with PostgreSQL 10 or sup. (tested and updated up to PG 18)
 -- Date:    2008-08-15
--- Version: 1.0.33e on 2026-02-14
+-- Version: 1.0.33g on 2026-05-14
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -13,7 +13,7 @@
 --          1.0.6 PG 9.1 new features (if <9.1 gives an error on pg_available_extension)
 --          1.0.7 Added poor password check (a) session summary
 --          1.0.8 PG 9.2 new features (NB pg_stat_activity is not compatible with previuos releases)
---          1.0.9 More performance statistics
+--          1.0.9 More performance stentatistics
 --          1.0.10 Replication stats, (a) vacuum stats, (b) pg_stat_statement summary, (c) pg_buffercache
 --                 pg_stat_statement, pg_buffercache extensions must be created to get all the infos
 --          1.0.11 pg_stat_archiver (PG 9.4), pg_stat_activity bkw changes (PG 9.6), logical replication (PG 10.1)
@@ -53,7 +53,8 @@
 --                 (a) more KPIs
 --          1.0.33 Latest versions update; fixed EDB casting bug in KPIs. (a) small KPI fixes (b) overpartitioning check
 --                 (c) Latest versions update, PG19 stub (d) experimental section, PG16 pg_stat_get_backend_subxact
---                 (e) unexepected version update
+--                 (e) unexepected version update (f) few rows in overpart, latest versions update, EDB packages
+--                 (g) latest versions update, new KPIs
 \set var_as_admin 1
 
 \pset tuples_only
@@ -99,7 +100,7 @@ select '</table><p><hr>' ;
 select '<p>Report generated on: '|| now();
 select 'on database: <strong>'||current_database()||'</strong>' ;
 select 'by user: '||user ;
-select 'using: <em><strong>pg2html.sql</strong> v.1.0.33e</em>' ;
+select 'using: <em><strong>pg2html.sql</strong> v.1.0.33g</em>' ;
  
 select '<hr><h2 id="status">Summary</h2>';
 select '<table class="bordered"><thead><tr><th scope="col">Item</th><th scope="col">Value</th></tr></thead><tbody>' ;
@@ -217,13 +218,13 @@ SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num')
   ELSE 'NO' END; -- last2 release
 SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
   in (90624,100023,110022,120022, 130023,
-  140021,140022,140020,
-  150016,150017,150015,
-  160012,160013,160011,
-  170008,170009,170007,
-  180002,180003,180001) THEN 'YES'
+  140021,140022,140023,
+  150016,150017,150018,
+  160012,160013,160014,
+  170008,170009,170010,
+  180002,180003,180004) THEN 'YES'
   ELSE 'NO' END; -- last2 update
-select '<td>Latest Releases: 18.3, 17.9, 16.13, 15.17, 14.22';
+select '<td>Latest Releases: 18.4, 17.10, 16.14, 15.18, 14.23';
 select '    <br>Latest Unsupported: 13.23, 12.22, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
 select '    8.4.21, 8.3.23, 8.2.23, 8.1.23, 8.0.26; 7.4.30, 6.5.3';
 select '</table><p><hr>';
@@ -989,8 +990,8 @@ select '<td class="vtop"><table class="bordered sfont"><caption>Per-APP Sessions
  ;
 select '<tr><th>APP</th>', '<th>Database</th>',
        '<th>Count</th>', '<th>Active</th>', '<th>Idle TX</th>';
-select '<tr><td>', replace(replace(application_name,'<','&lt;'), '>','&gt;') appl,
-       '<td>',datname,
+select '<tr><td><div class="truncate">', replace(replace(application_name,'<','&lt;'), '>','&gt;') appl,
+       '</div><td>',datname,
         '<td>', count(*),
         '<td>', sum(case when state='active' then 1 else 0 end),
         '<td>', sum(case when state='idle in transaction' then 1 else 0 end)
@@ -1109,13 +1110,14 @@ select '<p><hr>' ;
 
 select '<h2 id="lockd">Locks</h2>'  ;
 select '<div id="wlock"></div>'  ;
-select '<table class="bordered"><caption>Waiting Locks  (now: ', now(), ')</caption>';
+select '<table class="bordered"><caption>Waiting Locks (now: ', now(), ')</caption>';
 select '<tr><th>Pid</th>',
  '<th>Type</th>',
  '<th>Database</th>',
  '<th>Relation</th>',
  '<th>Mode</th>',
  '<th>Granted</th>',
+ '<th>TX</th>',
  '<th>Wait start</th>'
 as info;
 \if :var_version_14p
@@ -1125,6 +1127,7 @@ select '<tr><td>',pid,
        '<td>',relname, 
        '<td>',mode, 
        '<td>',granted,
+       '<td>',virtualtransaction,
        '<td>',waitstart
   from pg_locks l
   left join pg_catalog.pg_database d on d.oid = l.database
@@ -1138,6 +1141,7 @@ select '<tr><td>',pid,
        '<td>',relname, 
        '<td>',mode, 
        '<td>',granted,
+       '<td>',virtualtransaction,
        '<td>'
   from pg_locks l
   left join pg_catalog.pg_database d on d.oid = l.database
@@ -1490,7 +1494,7 @@ select '<tr><td>Supported Version',' <td class="align-right">', --  Major versio
        round(current_setting('server_version_num')::integer/10000),
        '<td> &gt; 13';
 
-select '<tr><td>Connection usage %',' <td class="align-right">', -- Connection Utilization Percentage
+select '<tr><td>Connection usage %',' <td class="align-right">', -- Current Connection Utilization Percentage
        round(count(*)/current_setting('max_connections')::numeric*100,2),
        '<td> &lt; 70'
   from pg_stat_activity;
@@ -1526,7 +1530,7 @@ select '<tr><td>Idle in Transaction',' <td class="align-right">', -- Idle in Tra
 
 select '<tr><td>Longest running query (s)',' <td class="align-right">',  -- Longest running query (s)
        round(EXTRACT(EPOCH FROM (now() - min(query_start)))::numeric, 2),
-       '<td> &lt; 3600'
+       '<td> &lt; 1800'
   from pg_stat_activity
  where state='active'
    and pid <> pg_backend_pid()
@@ -1679,6 +1683,17 @@ select '<tr><td>Active time %',' <td class="align-right">', -- Database Active T
        '<td> &lt; 50'
   from pg_stat_database
  where datname=current_database();
+
+select '<tr><td>Connection /second',' <td class="align-right">', -- Connection /second
+       round(sessions::decimal/1000*100/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,2),
+       '<td> &lt; 10'
+  from pg_stat_database
+ where datname=current_database();
+
+select '<tr><td>Statements /second',' <td class="align-right">',
+       round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,2) Exec,
+       '<td> &lt; 2000'
+  from pg_stat_statements, pg_stat_statements_info where toplevel;
 \endif
 
 select '<tr><td>TPS',' <td class="align-right">', -- TPS
@@ -1778,6 +1793,8 @@ SELECT '<p>Instance restart: '|| pg_postmaster_start_time(),
 SELECT '<p>Instance restart: '|| pg_postmaster_start_time(),
        '  Now: '|| now();
 \endif
+select ' Statements: '|| count(*)|| '/'|| current_setting('pg_stat_statements.max')
+  from pg_stat_statements;
 
 select '<!-- Report running: '|| now() || ' -->';
 select '<p><table class="bordered sortable sfont"><caption>Statement Statistics</caption><thead><tr>';
@@ -1909,7 +1926,7 @@ select '<tr><td>'||schemaname,
  limit 20;
 select '</tbody></table><p>' ;
 
-select '<p><table class="bordered"><caption>Tables Custom Storage Settings</caption><thead><tr><th scope="col">Schema</th><th scope="col">Object #</th><th scope="col">Storage Parameter</th></tr></thead><tbody>' ;
+select '<p><table class="bordered"><caption>Custom Storage Table Settings</caption><thead><tr><th scope="col">Schema</th><th scope="col">Object #</th><th scope="col">Storage Parameter</th></tr></thead><tbody>' ;
 select '<tr><td>'||n.nspname,
    '<td class="align-right">', count(*),
    '<td>', unnest(t.reloptions)
@@ -2305,7 +2322,34 @@ select '<tr><td>'||rolname, '<td>'||nspname,
 select '</tbody></table></div><p>' ;
 
 select '<div class="pre-like"><p id="over_part">';
-select '<table class="bordered"><caption>Overpartitioning check: Empty/Small partitions</caption><thead>';
+select '<table class="bordered"><caption>Overpartitioning check: Too much partitions</caption><thead>';
+select '<tr><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Partitioned Object</th>';
+select '<th scope="col">Partition#</th><th scope="col">Leaf#</th>' ;
+select '<th scope="col">Few</th><th scope="col">Small</th><th scope="col">Empty</th><th scope="col">Not Analyzed</th></tr></thead><tbody>';
+SELECT '<tr><td>' || r.rolname,
+       '<td>' || n.nspname,
+       '<td>' || t.relname,
+       '<td class="align-right">', COUNT(DISTINCT p.oid) + COUNT(DISTINCT c2.oid) AS total_partitions,
+       '<td class="align-right">' || COUNT(DISTINCT COALESCE(c2.oid, p.oid)) FILTER (WHERE (COALESCE(c2.relkind, p.relkind) = 'r')) AS leaf_partitions,
+       '<td class="align-right">' || COUNT(DISTINCT COALESCE(c2.oid, p.oid)) FILTER (WHERE (COALESCE(c2.relkind, p.relkind) = 'r') AND COALESCE(c2.reltuples, p.reltuples, 0) <1000) AS few,
+       '<td class="align-right">' || COUNT(DISTINCT COALESCE(c2.oid, p.oid)) FILTER (WHERE (COALESCE(c2.relkind, p.relkind) = 'r') AND COALESCE(c2.relpages, p.relpages, 0) < 2) AS small,
+       '<td class="align-right">' || COUNT(DISTINCT COALESCE(c2.oid, p.oid)) FILTER (WHERE (COALESCE(c2.relkind, p.relkind) = 'r') AND COALESCE(c2.reltuples, p.reltuples, 0) = 0) AS empty,
+       '<td class="align-right">' || COUNT(DISTINCT COALESCE(c2.oid, p.oid)) FILTER (WHERE (COALESCE(c2.relkind, p.relkind) = 'r') AND COALESCE(c2.reltuples, p.reltuples, -1) < 0) AS unanalyzed
+  FROM pg_class t
+  JOIN pg_inherits i ON i.inhparent = t.oid
+  JOIN pg_class p ON p.oid = i.inhrelid
+  LEFT JOIN pg_inherits i2 ON i2.inhparent = p.oid
+  LEFT JOIN pg_class c2 ON c2.oid = i2.inhrelid
+  JOIN pg_roles r ON t.relowner = r.oid
+  JOIN pg_namespace n ON t.relnamespace = n.oid
+ WHERE p.relkind IN ('r','p')
+ GROUP BY r.rolname, n.nspname, t.relname
+ -- HAVING COUNT(*) > 100
+ ORDER BY total_partitions DESC
+ LIMIT 20;
+select '</tbody></table>' ;
+
+select '<table class="bordered"><caption>Overpartitioning check: Empty/Small partitions List</caption><thead>';
 select '<tr><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Partitioned Object</th>';
 select '<th scope="col">Partition</th><th scope="col">Tuples</th></tr></thead><tbody>' ;
 select '<tr><td>'||rolname, '<td>'||nspname,
@@ -2334,25 +2378,10 @@ select '<tr><td>'||rolname, '<td>'||nspname,
    and p.reltuples < 100 *1000
    and p.reltuples >0
  order by p.reltuples, rolname, nspname, t.relname, p.relname limit 5;
-select '</tbody></table>' ;
-
-select '<table class="bordered"><caption>Overpartitioning check: Too much partitions</caption><thead>';
-select '<tr><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Partitioned Object</th>';
-select '<th scope="col">Partition#</th></tr></thead><tbody>' ;
-select '<tr><td>'||rolname, '<td>'||nspname,
-   '<td>', t.relname,
-   '<td>', count(*)
-  from pg_class t, pg_inherits i, pg_class p, pg_roles r, pg_namespace n
- where i.inhparent = t.oid 
-   and p.oid = i.inhrelid
-   and t.relowner=r.oid
-   and t.relnamespace=n.oid
-   and p.relkind in ('r', 'p')
- group by rolname, nspname, t.relname
- HAVING COUNT(*) > 100
- order by count(*) desc limit 20;
-select '</tbody></table>' ;
+select '<tr><td>...';
+select '</tbody></table><p>' ;
 select '</div><p>' ;
+
 
 select '<h2 id="param">Tuning Parameters</h2>' ;
 select '<p><table class="bordered"><caption>Most Important Tuning Parameters</caption><thead><tr><th scope="col">Parameter</th><th scope="col">Value</th><th scope="col">Min</th><th scope="col">Max</th><th scope="col">Unit</th><th scope="col">Context</th><th scope="col">Description</th><th scope="col">Setting</th><th scope="col">Source</th></tr></thead><tbody>' ;
@@ -2401,26 +2430,29 @@ select '<tr><td>'||relname,
 select '</tbody></table><p>' ;
 
 select '<p><a id="bigp"></a>'  ;
-select '<p><table class="bordered"><caption>Biggest Partitioned Objects</caption><thead><tr><th scope="col">Object</th><th scope="col">Hierarchy level</th><th scope="col">Partition#</th><th scope="col">Rows</th><th scope="col">Bytes</th><th scope="col">HR Size</th></tr></thead><tbody>' ;
+select '<p><table class="bordered"><caption>Biggest Partitioned Objects</caption><thead><tr><th scope="col">Object</th><th scope="col">Hierarchy level</th><th scope="col">Partition#</th><th scope="col">Est. Rows</th><th scope="col">Est. Leaf Rows</th><th scope="col">Bytes</th><th scope="col">HR Size</th></tr></thead><tbody>' ;
 WITH RECURSIVE tabs AS (
-     SELECT c.oid AS parent, c.oid AS relid, 1 AS level, c.reltuples as rows
+     SELECT c.oid AS parent, c.oid AS relid, 1 AS level, 
+            case c.reltuples when -1 then 0 else c.reltuples end as rows, c.relkind as kind
        FROM pg_catalog.pg_class c
        LEFT JOIN pg_catalog.pg_inherits AS i ON c.oid = i.inhrelid
       WHERE c.relkind IN ('p', 'r')
         AND i.inhrelid IS NULL
       UNION ALL
-     SELECT p.parent AS parent, c.oid AS relid, p.level + 1 AS level, c.reltuples as rows
+     SELECT p.parent AS parent, c.oid AS relid, p.level + 1 AS level,
+            case c.reltuples when -1 then 0 else c.reltuples end as rows, c.relkind as kind
        FROM tabs AS p
        LEFT JOIN pg_catalog.pg_inherits AS i ON p.relid = i.inhparent
        LEFT JOIN pg_catalog.pg_class AS c ON c.oid = i.inhrelid AND c.relispartition
       WHERE c.oid IS NOT NULL
 )
-SELECT '<tr><td>',parent ::REGCLASS AS table_name, 
-       '<td class="align-right">',max(level)-1 AS hierarchy_level,
-       '<td class="align-right">',count(*) AS partition_count,
-       '<td class="align-right">',to_char(sum(case level when 1 then rows else 0 end),'999G999G999G999G999G999G999') AS rows,
-       '<td class="align-right">',to_char(sum(pg_total_relation_size(relid)),'999G999G999G999G999G999G999') AS total_size,
-       '<td class="align-right">',pg_size_pretty(sum(pg_total_relation_size(relid))) AS pretty_total_size
+SELECT '<tr><td>'||parent ::REGCLASS AS table_name, 
+       '<td class="align-right">'||max(level)-1 AS hierarchy_level,
+       '<td class="align-right">'||count(*) AS partition_count,
+       '<td class="align-right">'||to_char(sum(case level when 1 then rows else 0 end),'999G999G999G999G999G999G999') AS part_rows,
+       '<td class="align-right">'||to_char(sum(case kind when 'r' then rows else 0 end),'999G999G999G999G999G999G999') AS leaf_rows,
+       '<td class="align-right">'||to_char(sum(pg_total_relation_size(relid)),'999G999G999G999G999G999G999') AS total_size,
+       '<td class="align-right">'||pg_size_pretty(sum(pg_total_relation_size(relid))) AS pretty_total_size
        -- array_agg(relid :: REGCLASS) AS all_partitions
   FROM tabs
  GROUP BY parent
@@ -2467,21 +2499,24 @@ select '<thead><tr><th scope="col">Available languages</th></tr></thead><tbody>'
 select '<tr><td>'||lanname
 from pg_language;
 select '</tbody></table><p><table class="bordered"><caption>PL Objects</caption>';
-select '<thead><tr><th scope="col">Owner</th><th scope="col">Kind</th><th scope="col">Language</th><th scope="col">Count</th><th scope="col">Source size</th></tr></thead><tbody>' ;
-select '<tr><td>'||o.rolname,
+select '<thead><tr><th scope="col">Schema</th><th scope="col">Owner</th><th scope="col">Kind</th><th scope="col">Language</th>';
+select '<th scope="col">Count</th><th scope="col">Lines</th><th scope="col">Source size</th></tr></thead><tbody>' ;
+select '<tr><td>'||nspname, '<td>'||rolname, 
  '<td>'||case when f.prokind='f' then 'Function'
            when f.prokind='a' then 'Aggregate func.'
            when f.prokind='w' then 'Window func.'
            when f.prokind='p' then 'Procedure'
            else 'Other' end,
  '<td>'||l.lanname, '<td class="align-right">'||count(*),
- '<td class="align-right">'||sum(char_length(prosrc))
-  from pg_proc f, pg_roles o, pg_language l
+ '<td class="align-right">'||sum(length(prosrc)- length(replace(prosrc, E'\n', '')) + 1),
+ '<td class="align-right">'||sum(length(prosrc))
+  from pg_proc f, pg_roles o, pg_language l, pg_namespace n
  where f.proowner=o.oid
    and f.prolang=l.oid
+   and pronamespace=n.oid
    and o.rolname not in ('postgres', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin')
- group by o.rolname, l.lanname, prokind
- order by o.rolname, prokind, l.lanname;
+ group by nspname, o.rolname, l.lanname, prokind
+ order by nspname, o.rolname, prokind, l.lanname;
 select '</tbody></table><p>' ;
 
 -- regexp_split_to_table(prosrc, E'\n')
@@ -2876,25 +2911,31 @@ select '<tr><td><p><div class="pre-like">' ;
 \pset tuples_only
 \a
 
-SELECT c.relname, c.relkind, count(*) as buffers,
-       pg_size_pretty(count(*) * 8192) as buffered,
+SELECT c.relname, CASE c.relkind 
+         WHEN 'r' THEN 'Table' 
+         WHEN 'i' THEN 'Index' 
+         WHEN 't' THEN 'TOAST' 
+         WHEN 'm' THEN 'Mat. View' 
+         ELSE c.relkind::text END AS type,
+       count(*) AS buffers,
+       pg_size_pretty(count(*) * 8192) AS size,
        round(100.0 * count(*)/(SELECT setting FROM pg_settings WHERE name='shared_buffers')::integer,1) as buffers_pct,
-       round(100.0 * count(*) * 8192 / pg_relation_size(c.oid),1) as relation_pct,
-       round(avg(usagecount),2) as usage_avg
+       pg_size_pretty(pg_relation_size(c.oid)) AS object_size,
+       round(100.0 * (count(*) * 8192) / NULLIF(pg_relation_size(c.oid), 0), 2) AS object_pct,
+       round(avg(usagecount), 2) AS usage_avg
   FROM pg_class c
- INNER JOIN pg_buffercache b ON b.relfilenode = c.relfilenode
+ INNER JOIN pg_buffercache b ON b.relfilenode = pg_relation_filenode(c.oid)
  INNER JOIN pg_database d ON (b.reldatabase = d.oid AND d.datname = current_database())
  WHERE pg_relation_size(c.oid) > 0
  GROUP BY c.oid, c.relname, c.relkind
- ORDER BY 3 DESC
- LIMIT 30;
+ ORDER BY buffers DESC LIMIT 30;
 
-SELECT pg_size_pretty(setting::bigint*8192::bigint) as buffer_cache_size
-  FROM pg_settings
- WHERE name='shared_buffers';
-SELECT pg_size_pretty(count(*) * 8192) as minimal_cache_size_est
-  FROM pg_buffercache
- WHERE usagecount >= 3;
+SELECT current_setting('shared_buffers') AS total_buffer_config,
+       pg_size_pretty(count(*) * 8192) AS used_cache_size,
+       pg_size_pretty(count(relfilenode) * 8192) AS data_cache_size,
+       round(100.0 * count(relfilenode)
+         / (SELECT setting::bigint FROM pg_settings WHERE name = 'shared_buffers'), 2) AS usage_percent
+  FROM pg_buffercache;
 
 \pset tuples_only
 \a
@@ -2915,46 +2956,6 @@ SELECT * FROM postgres_fdw_get_connections() ORDER BY 1;
 select '</div></table><p><hr>' ;
 \endif
 
-select '<p><a id="bloat_approx"></a>'  ;
-select '<p><table class="bordered"><tr><th>Approximate Bloat KPI </th></tr>';
-select '<tr><td><p><div class="pre-like">' ;
-\pset tuples_only
-\a
-
--- Very, very raw Bloat Estimate
-WITH table_stats AS (
-  SELECT
-    c.oid,
-    n.nspname AS schema_name,
-    c.relname AS table_name,
-    pg_relation_size(c.oid) AS table_size,
-    c.reltuples,
-    COALESCE(SUM(s.avg_width * (1 - s.null_frac)), 0) AS avg_row_size
-  FROM pg_class c
-  JOIN pg_namespace n ON n.oid = c.relnamespace
-  LEFT JOIN pg_stats s
-    ON s.schemaname = n.nspname
-   AND s.tablename = c.relname
-  WHERE c.relkind = 'r'                 -- solo tabelle
-    AND c.reltuples > 0                 -- evita tabelle vuote
-    AND n.nspname NOT IN ('pg_catalog', 'information_schema')
-  GROUP BY c.oid, n.nspname, c.relname, c.reltuples
-),
-bloat_estimate AS (
-  SELECT
-    SUM(table_size) AS total_size,
-    SUM(GREATEST(table_size - (reltuples * avg_row_size), 0)) AS bloat_bytes
-  FROM table_stats
-)
-SELECT
-  pg_size_pretty(total_size) AS total_table_size,
-  pg_size_pretty(bloat_bytes::numeric) AS approx_bloat_size,
-  ROUND(100 * bloat_bytes::numeric / NULLIF(total_size, 0), 2) AS bloat_pct
-FROM bloat_estimate;
-
-\pset tuples_only
-\a
-select '</div></table><p><hr>' ;
 
 \if :opt_pgstattuple
 select '<p><a id="pgstattuple"></a>'  ;
@@ -3328,137 +3329,6 @@ select '<tr><td><div class="pre-like">' ;
 select '</div></table><p>' ;
 \endif
 
-
-select '<p><a id="todo"></a>'  ;
-select '<p><table class="bordered"><tr><th>Experimental/TODO</th></tr>';
-select '<tr><td><div class="pre-like">' ;
-\pset tuples_only
-\a
-
--- SLRU Caches Hit
-select name || ' SLRU Cache Hit %' as caches,  
-       round(100.0 * blks_hit / (blks_hit + blks_read), 2) value
-  from pg_stat_slru
- where blks_read>100;
-
--- Max age in sessions or in prepared transactions
-WITH extreme_values AS (
-    SELECT min(xmin_val) as global_min_xmin FROM (
-        SELECT backend_xmin::text::bigint as xmin_val FROM pg_stat_activity WHERE backend_xmin IS NOT NULL
-        UNION ALL
-        SELECT transaction::text::bigint FROM pg_prepared_xacts
-    ) s
-)
-SELECT 'SESSION' as type, pid, state,
-       backend_xmin as oldest_xmin,
-       age(backend_xmin) as xmin_age,
-       now() - xact_start AS duration,
-       left(query, 20) as identification
-  FROM pg_stat_activity, extreme_values
- WHERE backend_xmin::text::bigint = extreme_values.global_min_xmin
- UNION ALL
-SELECT 'PREPARED TX' as type, null as pid, 'N/A' as state,
-       transaction as oldest_xmin,
-       age(transaction) as xmin_age,
-       now() - prepared AS duration,
-       'GID: ' || gid as identification
-  FROM pg_prepared_xacts, extreme_values
- WHERE transaction::text::bigint = extreme_values.global_min_xmin;
-SELECT 'REPLICATION SLOT' as type, null as pid, null as state,
-       min(xmin::text::bigint) as oldest_xmin,
-       min(age(xmin)) as xmin_age,
-       null AS duration,
-       null as identification
-  FROM pg_replication_slots;
-
--- Max age in replication slots
-SELECT slot_name, 
-       active, 
-       active_pid,
-       xmin AS slot_xmin, 
-       age(xmin) AS xmin_age,
-       catalog_xmin,
-       age(catalog_xmin) AS catalog_age,
-       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS replication_lag_size
-  FROM pg_replication_slots
-ORDER BY age(xmin) DESC;
-
--- Sessions grouped by wait event
-SELECT wait_event_type, wait_event, count(*) 
-  FROM pg_stat_activity
- group by wait_event_type, wait_event
- order by 3 desc,1,2;
-
--- SAVEPOINT or subtrasactions statements
-SELECT queryid,
-    calls, 
-    rows,
-    round(total_exec_time::numeric, 2) as total_ms,
-    round(mean_exec_time::numeric, 2) as avg_ms,
-    shared_blks_read,
-    left(query, 30) as subtx_query
-FROM pg_stat_statements
-WHERE query ILIKE '%SAVEPOINT%' 
-   OR query ILIKE '%EXCEPTION%'
-   OR query ILIKE '%ROLLBACK TO%'
-   OR query ILIKE '%COMMIT%'
-ORDER BY calls DESC
-LIMIT 10;
-
--- Query jittering
-SELECT queryid,
-    calls, 
-    round(min_exec_time::numeric, 2) as min_ms,
-    round(max_exec_time::numeric, 2) as max_ms,
-    round(mean_exec_time::numeric, 2) as avg_ms,
-    round(stddev_exec_time::numeric, 2) as jitter_stddev, 
-    round((stddev_exec_time / NULLIF(mean_exec_time, 0) * 100)::numeric, 2) as variability_pct,
-    left(query, 30) as jittering_query
-FROM pg_stat_statements 
-WHERE calls > 100
-ORDER BY jitter_stddev DESC 
-LIMIT 10;
-
--- Jittering KPI
-WITH base_stats AS (
-    SELECT 
-        sum(total_exec_time) OVER () as global_total_time,
-        total_exec_time,
-        mean_exec_time,
-        stddev_exec_time,
-        calls,
-        wal_bytes,
-        query
-    FROM pg_stat_statements
-    JOIN pg_roles ON (pg_stat_statements.userid = pg_roles.oid)
-    WHERE pg_roles.rolname NOT IN ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
-      AND query NOT LIKE 'VACUUM%'
-      AND query NOT LIKE 'ANALYZE%'
-),
-ranked_stats AS (
-    SELECT *,
-        sum(total_exec_time) OVER (ORDER BY total_exec_time DESC) / NULLIF(global_total_time, 0) as cumulative_weight
-    FROM base_stats
-),
-filtered_stats AS (
-    SELECT * FROM ranked_stats 
-    WHERE cumulative_weight <= 0.95 
-      AND global_total_time > 600000  --  600.000 ms, 10 minutes
-)
-SELECT round( (sum(stddev_exec_time * calls) / 
-               NULLIF(sum(mean_exec_time * calls), 0))::numeric, 3) as db_jitter_kpi,    
-       round(sum(wal_bytes)::numeric / NULLIF(sum(calls), 0), 2) as avg_wal_bytes_per_call,    
-       count(*) as queries,    
-       round((global_total_time / 3600000)::numeric, 2) as workload_hours
-FROM filtered_stats
-group by global_total_time
-HAVING sum(calls) > 0;
-
-\pset tuples_only
-\a
-select '</div></table><p>' ;
-
-
 select '<hr>';
 
 select '<p><a id="fullt"></a>'  ;
@@ -3701,6 +3571,16 @@ select '</div></table><p>' ;
 \endif
 
 
+\if :opt_pgaudit
+select '<p><a id="pgaudit"></a>';
+select '<p><table class="bordered"><tr><th>PGAudit logged Objects</th></tr>' ;
+select '<tr><th>Schema</th>', '<th>Table</th>', '<th>Privilege</th>';
+SELECT '<tr><td>',table_schema, '<td>',table_name, '<td>',privilege_type 
+  FROM information_schema.role_table_grants 
+ WHERE grantee in ('rds_pgaudit', 'auditor', 'pgaudit')
+ ORDER BY table_schema, table_name;
+\endif
+
 select '<a id="fork"></a>';
 
 \if :opt_edb
@@ -3736,6 +3616,58 @@ select *
   from all_synonyms;
 select *
   from all_policies;
+
+-- Sources
+SELECT schema_name, owner,
+       sum(case when type='FUNCTION' THEN 1 ELSE 0 end) is_func,
+       sum(case when type='PROCEDURE' THEN 1 ELSE 0 end) is_proc,
+       sum(case when type='PACKAGE' THEN 1 ELSE 0 end) is_pkg,
+       sum(case when type='PACKAGE BODY' THEN 1 ELSE 0 end) is_body,
+       sum(case when type='TRIGGER' THEN 1 ELSE 0 end) is_trig,
+       count(*) as total,
+       sum(lines) as lines,
+       sum(bytes) as bytes
+  FROM
+(select schema_name, owner, type, name, max(line) lines, sum(length(text)) bytes
+  from all_source
+ where owner not in ('POSTGRES', 'ENTERPRISEDB') 
+ group by schema_name, owner, type, name) a
+group by schema_name, owner
+order by schema_name, owner;
+
+SELECT schema_name, owner as pkg_owner,
+       sum(case when type='FUNCTION' THEN 1 ELSE 0 end) is_func,
+       sum(case when type='PROCEDURE' THEN 1 ELSE 0 end) is_proc,
+       sum(case when type='PACKAGE' THEN 1 ELSE 0 end) is_pkg,
+       sum(case when type='PACKAGE BODY' THEN 1 ELSE 0 end) is_body,
+       sum(case when type='TRIGGER' THEN 1 ELSE 0 end) is_trig,
+       count(*) as total,
+       sum(lines) as lines,
+       sum(bytes) as bytes
+  FROM
+(SELECT 
+    n.nspname AS schema_name, rolname as owner,
+    'PACKAGE' AS type,
+    p.pkgname AS name, 0 as lines,
+    length(p.pkgheadsrc) AS bytes
+FROM edb_package p
+JOIN pg_namespace n ON p.pkgnamespace = n.oid
+JOIN pg_authid a ON p.pkgowner = a.oid
+ where rolname not in ('enterprisedb', 'ENTERPRISEDB') 
+UNION ALL
+SELECT 
+    n.nspname AS schema_name, rolname,
+    'PACKAGE BODY' AS type,
+    p.pkgname AS name, 0 as lines,
+    length(p.pkgheadsrc) AS bytes
+FROM edb_package p
+JOIN pg_namespace n ON p.pkgnamespace = n.oid
+JOIN pg_authid a ON p.pkgowner = a.oid
+WHERE p.pkgbodysrc IS NOT NULL
+  AND rolname not in ('enterprisedb', 'ENTERPRISEDB') 
+) a
+group by schema_name, owner
+order by schema_name, owner;
 
 
 -- EDB Performance 
@@ -3888,11 +3820,11 @@ select dbid, queryid, calls, total_exec_time, blk_read_time, blk_write_time,
 \endif
 
 select *
-  from google_db_advisor_workload_report;
+  from google_db_advisor_workload_report limit 200;
+-- select *
+--   from google_db_advisor_recommend_indexes limit 200;
 select *
-  from google_db_advisor_recommend_indexes;
-select *
-  from google_db_advisor_recommended_indexes_to_drop;
+  from google_db_advisor_recommended_indexes_to_drop limit 200;
 
 \if :opt_alloy_col
 SELECT *
@@ -3930,16 +3862,188 @@ select '</div></table><p><hr>' ;
 \endif
 
 
-\if :opt_pgaudit
-select '<p><a id="pgaudit"></a>';
-select '<p><table class="bordered"><tr><th>PGAudit logged Objects</th></tr>' ;
-select '<tr><th>Schema</th>', '<th>Table</th>', '<th>Privilege</th>';
-SELECT '<tr><td>',table_schema, '<td>',table_name, '<td>',privilege_type 
-  FROM information_schema.role_table_grants 
- WHERE grantee in ('rds_pgaudit', 'auditor', 'pgaudit')
- ORDER BY table_schema, table_name;
+select '<p><a id="todo"></a>'  ;
+select '<p><table class="bordered"><tr><th>Experimental/TODO</th></tr>';
+select '<tr><td><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+-- Very, very raw Bloat Estimate
+WITH table_stats AS (
+  SELECT
+    c.oid,
+    n.nspname AS schema_name,
+    c.relname AS table_name,
+    pg_relation_size(c.oid) AS table_size,
+    c.reltuples,
+    COALESCE(SUM(s.avg_width * (1 - s.null_frac)), 0) AS avg_row_size
+  FROM pg_class c
+  JOIN pg_namespace n ON n.oid = c.relnamespace
+  LEFT JOIN pg_stats s
+    ON s.schemaname = n.nspname
+   AND s.tablename = c.relname
+  WHERE c.relkind = 'r'                 -- solo tabelle
+    AND c.reltuples > 0                 -- evita tabelle vuote
+    AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+  GROUP BY c.oid, n.nspname, c.relname, c.reltuples
+),
+bloat_estimate AS (
+  SELECT
+    SUM(table_size) AS total_size,
+    SUM(GREATEST(table_size - (reltuples * avg_row_size), 0)) AS bloat_bytes
+  FROM table_stats
+)
+SELECT
+  pg_size_pretty(total_size) AS total_table_size,
+  pg_size_pretty(bloat_bytes::numeric) AS approx_bloat_size,
+  ROUND(100 * bloat_bytes::numeric / NULLIF(total_size, 0), 2) AS bloat_pct
+FROM bloat_estimate;
+
+-- SLRU Caches Hit
+select name || ' SLRU Cache Hit %' as caches,  
+       round(100.0 * blks_hit / (blks_hit + blks_read), 2) value
+  from pg_stat_slru
+ where blks_read>100;
+
+-- Max age in sessions or in prepared transactions
+WITH extreme_values AS (
+    SELECT min(xmin_val) as global_min_xmin FROM (
+        SELECT backend_xmin::text::bigint as xmin_val FROM pg_stat_activity WHERE backend_xmin IS NOT NULL
+        UNION ALL
+        SELECT transaction::text::bigint FROM pg_prepared_xacts
+    ) s
+)
+SELECT 'SESSION' as type, pid, state,
+       backend_xmin as oldest_xmin,
+       age(backend_xmin) as xmin_age,
+       now() - xact_start AS duration,
+       left(query, 40) as identification
+  FROM pg_stat_activity, extreme_values
+ WHERE backend_xmin::text::bigint = extreme_values.global_min_xmin
+ UNION ALL
+SELECT 'PREPARED TX' as type, null as pid, 'N/A' as state,
+       transaction as oldest_xmin,
+       age(transaction) as xmin_age,
+       now() - prepared AS duration,
+       'GID: ' || gid as identification
+  FROM pg_prepared_xacts, extreme_values
+ WHERE transaction::text::bigint = extreme_values.global_min_xmin;
+SELECT 'REPLICATION SLOT' as type, null as pid, null as state,
+       min(catalog_xmin::text::bigint) as catalog_xmin,
+       min(xmin::text::bigint) as oldest_xmin,
+       min(age(xmin)) as xmin_age,
+       null AS duration,
+       null as identification
+  FROM pg_replication_slots;
+
+-- Max age in replication slots
+SELECT slot_name, 
+       active, 
+       active_pid,
+       xmin AS slot_xmin, 
+       age(xmin) AS xmin_age,
+       catalog_xmin,
+       age(catalog_xmin) AS catalog_age,
+       pg_size_pretty(pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)) AS replication_lag_size
+  FROM pg_replication_slots
+ORDER BY age(xmin) DESC;
+
+-- Sessions grouped by wait event
+SELECT wait_event_type, wait_event, count(*) 
+  FROM pg_stat_activity
+ group by wait_event_type, wait_event
+ order by 3 desc,1,2;
+
+\if :var_version_13p
+-- SAVEPOINT or subtrasactions statements
+SELECT queryid,
+    calls, 
+    rows,
+    round(total_exec_time::numeric, 2) as total_ms,
+    round(mean_exec_time::numeric, 2) as avg_ms,
+    shared_blks_read,
+    left(query, 30) as subtx_query
+FROM pg_stat_statements
+WHERE query ILIKE '%SAVEPOINT%' 
+   OR query ILIKE '%EXCEPTION%'
+   OR query ILIKE '%ROLLBACK TO%'
+   OR query ILIKE '%COMMIT%'
+ORDER BY calls DESC
+LIMIT 10;
+
+-- Jittering KPI
+WITH base_stats AS (
+    SELECT 
+        sum(total_exec_time) OVER () as global_total_time,
+        total_exec_time,
+        mean_exec_time,
+        stddev_exec_time,
+        calls,
+        wal_bytes,
+        query
+    FROM pg_stat_statements
+    JOIN pg_roles ON (pg_stat_statements.userid = pg_roles.oid)
+    WHERE pg_roles.rolname NOT IN ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
+      AND query NOT LIKE 'VACUUM%'
+      AND query NOT LIKE 'ANALYZE%'
+),
+ranked_stats AS (
+    SELECT *,
+        sum(total_exec_time) OVER (ORDER BY total_exec_time DESC) / NULLIF(global_total_time, 0) as cumulative_weight
+    FROM base_stats
+),
+filtered_stats AS (
+    SELECT * FROM ranked_stats 
+    WHERE cumulative_weight <= 0.95 
+      AND global_total_time > 600000  --  600.000 ms, 10 minutes
+)
+SELECT round( (sum(stddev_exec_time * calls) / 
+               NULLIF(sum(mean_exec_time * calls), 0))::numeric, 3) as db_jitter_kpi,    
+       round(sum(wal_bytes)::numeric / NULLIF(sum(calls), 0), 2) as avg_wal_bytes_per_call,    
+       count(*) as queries,    
+       round((global_total_time / 3600000)::numeric, 2) as workload_hours
+FROM filtered_stats
+group by global_total_time
+HAVING sum(calls) > 0;
 \endif
 
+-- Query jittering
+SELECT queryid,
+    calls, 
+    round(min_exec_time::numeric, 2) as min_ms,
+    round(max_exec_time::numeric, 2) as max_ms,
+    round(mean_exec_time::numeric, 2) as avg_ms,
+    round(stddev_exec_time::numeric, 2) as jitter_stddev, 
+    round((stddev_exec_time / NULLIF(mean_exec_time, 0) * 100)::numeric, 2) as variability_pct,
+    left(query, 30) as jittering_query
+FROM pg_stat_statements 
+WHERE calls > 100
+ORDER BY jitter_stddev DESC 
+LIMIT 10;
+
+\if :var_version_14p
+select 'Connection /second' stat,
+       round(sessions::decimal/1000*100/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,3)
+  from pg_stat_database
+ where datname=current_database();
+
+select 'Connection /TX' stat,
+       round(sessions::numeric / NULLIF((xact_commit + xact_rollback), 0), 3) val
+  from pg_stat_database
+ where datname=current_database();
+
+select 'TX /Connection' stat,
+       round((xact_commit + xact_rollback)::numeric / NULLIF((sessions), 0), 3) val
+  from pg_stat_database
+ where datname=current_database();
+\endif
+
+\pset tuples_only
+\a
+select '</div></table><p>' ;
+
+
+select '<hr><p>' ;
 
 select '<div><a href="#top" class="back-to-top">⬆ Back to index</a></div>' as info;
 select '<p><hr>' ;
