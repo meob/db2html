@@ -41,8 +41,8 @@ The zip file contains other useful scripts like:
 
 
 ## my2html - MySQL
-my2html is an easy and flexible tool to collect MySQL DBs configuration
-my2html works fine on MySQL >= 5.0 and forks but version specific scripts are available too (eg. 3.23, 8.0+, MariaDB)
+my2html is an easy and flexible tool to collect MySQL DBs configuration.
+my2html works fine on MySQL >= 5.0 and forks but version specific scripts are available too (eg. 3.23, 8.0+, MariaDB).
 
 ### Usage
 > vi my2html.sh		# If Your need to change the password  
@@ -50,9 +50,9 @@ my2html works fine on MySQL >= 5.0 and forks but version specific scripts are av
 
 
 ## pg2html - PostgreSQL
-pg2html is an easy and flexible tool to collect PostgreSQL configuration
-pg2html has been designed to work on all PostgreSQL releases since 10 and had been tested up to 18
-A script legacy version is available too for very old versions from 7.0 to 10
+pg2html is an easy and flexible tool to collect PostgreSQL configuration.
+pg2html has been designed to work on all PostgreSQL releases since 10 and had been tested up to 18.
+A legacy script version is available too for very old versions from 7.0 to 10.
 
 ### Usage
 Login as postgres user then  
@@ -60,8 +60,8 @@ Login as postgres user then
 
 
 ## ch2html - ClickHouse
-ch2html is an easy and flexible tool to collect ClickHouse OLAP database configuration
-ch2html has been designed to work on ClickHouse 18.x releases or newer
+ch2html is an easy and flexible tool to collect ClickHouse OLAP database configuration.
+ch2html has been designed to work on ClickHouse 18.x releases or newer.
 
 ### Usage
 > vi ch2html.sh		# If Your need to change the password  
