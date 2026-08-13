@@ -1,7 +1,7 @@
 -- Program:	 my2html.80.sh
 -- Info:	 MySQL (8.0) DBA Database SQL report in HTML
 -- Date:         2018-04-19
--- Version:      1.0.24: latest releases (2025-10-31), new CSS file
+-- Version:      1.0.26: components, latests versions (2026-07)
 -- Author:       Bartolomeo Bogliolo mail@meo.bogliolo.name
 -- License:      GPL
 --
@@ -53,7 +53,7 @@ select '</ul></table><p><hr>' ;
  
 select '<p>Statistics generated on: ', now();
 select ' by: ', user(), 'as: ',current_user();
-select 'using: <I><b>my2html.80.sh</b> v.1.0.24';
+select 'using: <I><b>my2html.80.sh</b> v.1.0.26';
 
 select '<hr><p><a id="status"></a>';
 select '<p><table class="bordered sortable"><caption>Summary</caption><thead><tr>';
@@ -143,15 +143,13 @@ select ' <td>', if(SUBSTRING_INDEX(version(),'-',1)
     in ('8.4.8','8.0.45','5.7.44', 
         '8.4.7','8.0.44' ), 'YES', 'NO') ; -- last2 MySQL updates
 
-select '<td>Latest Releases (MySQL): 9.6.0, <b>8.4.8</b>, <b>8.0.45</b>;';
-select '      9.0.1; 8.3.0, 8.2.0, 8.1.0, <b>5.7.44</b>, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
-select ' <br>Latest Releases (MariaDB): 12.0, <b>11.8.3</b>, 11.7.2, 11.6.2, 11.5.2, <b>11.4.8</b>, 11.3.2, 11.2.6, ';
-select '     11.1.6, 11.0.6, <b>10.11.14</b>, 10.10.7, <b>10.6.22</b>, 10.5.29, 10.4.34;';
+select '<td>Latest Releases (MySQL): 9.7.2, <b>8.4.11</b>; ';
+select '      9.6.0, 8.3.0; 8.0.46, 5.7.44, 5.6.51, 5.5.62, 5.1.73, 5.0.96'; 
+select ' <br>Latest Releases (MariaDB): 12.0.2, <b>11.8.5</b>, 11.7.2, 11.6.2, 11.5.2, <b>11.4.9</b>, 11.3.2, 11.2.6, ';
+select '     11.1.6, 11.0.6, <b>10.11.15</b>, 10.10.7, <b>10.6.23</b>, 10.5.29, 10.4.34;';
 select '     10.9.8, 10.8.8, 10.7.8, 10.3.39, 10.2.44, 10.1.48, 10.0.38, 5.5.68';
-select ' <br>Latest Releases (Aurora): 3.08.1-8.0.39, <b>3.05.2-8.0.32</b> (def.), 2.12.4-5.7.44, 1.23.4-5.6 ';
 select '</tbody></table><p><hr>' ;
 
- 
 select '<p><a id="obj"></a>' ;
 select '<p><table class="bordered sortable"><caption>Schema/Object Matrix</caption><thead><tr>' ;
 select '<th scope="col" class="tac tooltip">Database<span class="tooltiptext">Database</span></th>';
@@ -1569,11 +1567,17 @@ select '<p><table class="bordered sortable"><caption>Versions</caption><tbody>' 
 select '<tr><td>','MySQL:', variable_value
   from performance_schema.global_variables
  where variable_name ='version'
-union select '<tr><td>plugin:',plugin_name, plugin_version
+union select '<tr><td>plugin:', plugin_name,plugin_version
   from plugins
+  where PLUGIN_STATUS='ACTIVE'
+union select '<tr><td>disabled plugin:', plugin_name,plugin_version
+  from plugins
+  where PLUGIN_STATUS<>'ACTIVE'
+union select '<tr><td>component:', component_urn,''
+  from mysql.component
 union select '<tr><td>',concat(variable_name, ': '), variable_value
   from performance_schema.global_variables
- where variable_name like 'version%'
+ where variable_name like 'version%' AND variable_name <> 'version'
 union select '<tr><td>', 'SYS version:', sys_version
   from sys.version;
 select '</tbody></table><p><hr>' ;
