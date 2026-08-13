@@ -3,7 +3,7 @@ REM 		Oracle configuration HTML report
 REM Autore:	Bartolomeo Bogliolo mail [AT] meo.bogliolo.name meo
 REM               https://www.meo.bogliolo.name
 REM Data:	1-APR-98
-REM Versione:	1.0.37b 2026-01-06
+REM Versione:	1.0.37c 2026-07-21
 REM Note:	
 REM      	1-APR-98 mail@meo.bogliolo.name
 REM		 Versione HTML iniziale basata su gen.sql, passaggio alla lingua inglese
@@ -46,7 +46,7 @@ REM		 1.0.35 RU and RUP updated, CS in Summary  (a) List all parameters (b) data
 REM 		31-OCT-24 mail@meo.bogliolo.name 
 REM		 1.0.36 Use CTE instead of temporary tables (9.2+), RU and RUP updated
 REM 		31-OCT-25 mail@meo.bogliolo.name 
-REM		 1.0.37 Enhanced formatting with new style.css and util.js (a) small fixes (b) year change
+REM		 1.0.37 Enhanced formatting with new style.css and util.js (a) small fixes (b) year change (c) version updates
 
 set colsep ' '
 set pagesize 9999
@@ -111,7 +111,7 @@ from dual;
 select 'by: '||user
 from dual;
 
-select 'using: <I><b>ora2html.sql</b> v.1.0.37b'
+select 'using: <I><b>ora2html.sql</b> v.1.0.37c'
 from dual;
  
 select '<hr><P><a id="status"></A>' "Status" from dual;
@@ -228,7 +228,7 @@ select ' <td>', decode(substr(banner,instr(banner, '.',1,1)-2, instr(banner, '.'
                        '12.2', 'NO', '18.0', 'NO', '19.0', 'YES', '21.0', 'NO', '23.0', 'YES', '26.0', 'YES',
                                'NO')
   from v$version where banner like 'Oracle%'; 
-select ' <td>Last Release Updates (12.2+): <b>23.26.0</b>, 21.20, <b>19.29</b>; 20.2, 18.14, 12.2.0.1.220118' from dual;
+select ' <td>Last Release Updates (12.2+): <b>23.26.3</b>, 21.23, <b>19.32</b>; 20.2, 18.14, 12.2.0.1.220118' from dual;
 select ' <br>Last Patch Set Updates (12.1-): 12.1.0.2.221018, 11.2.0.4.201020, 10.2.0.5.19; 9.2.0.8, 8.1.7.4, 7.3.4.5' from dual;
 select '</table><p>' from dual;
 select '<P><table class="bordered"><tr><td><b>Versions</b></td></tr>' from dual;
