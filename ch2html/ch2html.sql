@@ -116,10 +116,10 @@ select '<tr><td><b>Version</b>',
  '<td><b> Recent releases </b>',
  '<td><b> Notes</b>';
 select '<tr><td>', version();
-select '<td>', if(value>=25000000,'Yes','No')
+select '<td>', if(value>=26000000,'Yes','No')
   from system.metrics
  where metric='VersionInteger';
-select '<td>', if(value>=24000000,'Yes','No')
+select '<td>', if(value>=25000000,'Yes','No')
   from system.metrics
  where metric='VersionInteger';
 select '<td>Latest Releases: 26.1.2.11, 25.12.5.44, 25.8.16.34-lts, 25.3.14.14-lts; 24.8.14.39-lts, 24.3.18.7-lts, 23.8.16.40−lts, 23.3.22.3−lts, 22.8.21.38-lts, 22.3.20.29−lts, 21.8.15.7-lts';
