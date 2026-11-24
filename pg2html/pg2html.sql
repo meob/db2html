@@ -1,8 +1,8 @@
 -- Program: pg2html.sql
 -- Info:    PostgreSQL psql report in HTML
---          Works with PostgreSQL 10 or sup. (tested and updated up to PG 18)
+--          Works better with PostgreSQL 10+ (tested and updated up to PG 19)
 -- Date:    2008-08-15
--- Version: 1.0.34c on 2026-08-13
+-- Version: 1.0.35 on 2026-11-19
 -- Author:  Bartolomeo Bogliolo (meo) mail [AT] meo.bogliolo.name
 -- Usage:   psql [-U USERNAME] [DBNAME] < pg2html.sql > /dev/null
 -- Notes:   1-APR-08 mail [AT] meo.bogliolo.name
@@ -56,9 +56,28 @@
 --                 (e) unexepected version update (f) few rows in overpart, latest versions update, EDB packages
 --                 (g) latest versions update, new KPIs 
 --          1.0.34 Security KPI, PG19 support (a) experimental/todo disabled (b) Indexes bloat (c) latest versions update
-\set var_as_admin 1
-\set var_todo 0
+--          1.0.35 Link to online doc, external parameters, PG19 production, initial PG20 support, Umami telemetry, better KPIs,
+--                 stmt timeout, added many statistics on extensions (e.g. pg_cron, pg_partman, citus, ...), many small fixes
 
+\if :{?var_as_admin}
+\else
+    \set var_as_admin 1
+\endif
+\if :{?var_histogram}
+\else
+    \set var_histogram '\'pgbench_accounts\''
+\endif
+\if :{?var_telemetry}
+\else
+    \set var_telemetry 1
+\endif
+\if :{?var_todo}
+\else
+    \set var_todo 0
+\endif
+
+\set QUIET 1
+set statement_timeout = '600s';
 \pset tuples_only
 \pset fieldsep ' '
 \pset footer off
@@ -66,7 +85,7 @@
 \o pg.htm
 
 select '<!DOCTYPE html><html><head><meta charset="UTF-8"><link rel="stylesheet" href="style.css">';
-select '<title>'||current_database()||' - PostgreSQL Statistics - pg2html</title></head><body>';
+select '<title> '||current_database()||' - pg2html PostgreSQL Statistics</title></head><body>';
 select '<h1>PostgreSQL - '||current_database()||'</h1>' ;
 
 select '<div id="top"></div>';
@@ -104,7 +123,7 @@ select '</table><p><hr>' ;
 select '<p>Report generated on: '|| now();
 select 'on database: <strong>'||current_database()||'</strong>' ;
 select 'by user: '||user ;
-select 'using: <em><strong>pg2html.sql</strong> v.1.0.34c</em>' ;
+select 'using: <em><strong>pg2html.sql</strong> v.1.0.35</em>' ;
  
 select '<hr><h2 id="status">Summary</h2>';
 select '<table class="bordered"><thead><tr><th scope="col">Item</th><th scope="col">Value</th></tr></thead><tbody>' ;
@@ -176,29 +195,23 @@ select '<tr><td>'||' Port (configured):',
 order by 2;
 select '</table><p><hr>' ;
 
-
 SELECT cast(current_setting('server_version_num')as integer)>= 120000 as version_12p
 \gset var_
-
 SELECT cast(current_setting('server_version_num')as integer)>= 130000 as version_13p
 \gset var_
-
 SELECT cast(current_setting('server_version_num')as integer)>= 140000 as version_14p
 \gset var_
-
 SELECT cast(current_setting('server_version_num')as integer)>= 150000 as version_15p
 \gset var_
-
 SELECT cast(current_setting('server_version_num')as integer)>= 160000 as version_16p
 \gset var_
-
 SELECT cast(current_setting('server_version_num')as integer)>= 170000 as version_17p
 \gset var_
-
 SELECT cast(current_setting('server_version_num')as integer)>= 180000 as version_18p
 \gset var_
-
 SELECT cast(current_setting('server_version_num')as integer)>= 190000 as version_19p
+\gset var_
+SELECT cast(current_setting('server_version_num')as integer)>= 200000 as version_20p
 \gset var_
 
 select '<h2 id="ver">Version</h2>' ;
@@ -209,27 +222,29 @@ select '</table><p>' ;
 select '<p><table class="bordered"><caption>Version check</caption>' ;
 select '<tr><th>Version</th>',
  '<th> Supported</th>',
- '<th> Recent major release (up to N-2)</th>',
  '<th> Recent minor release (up to N-1)</th>',
+ '<th> Recent major release (up to N-2)</th>',
  '<th> Notes</th>';
 SELECT '<tr><td>'||substring(version() for  position('on' in version())-1);
 SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num') as integer)/100)
-  in (1400, 1500, 1600, 1700, 1800) THEN 'YES'
+  in (1500, 1600, 1700, 1800, 1900) THEN 'YES'
   ELSE 'NO' END;
+SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
+  in (90624,100023,110022,120022, 130023,140025,
+  150020,150019,150021,
+  160016,160015,160017,
+  170012,170011,170013,
+  180007,180006,180008,
+  190000,190001,190002) THEN 'YES'
+  ELSE 'NO' END; -- last2 minor update
 SELECT '<td>', CASE WHEN trunc(cast(current_setting('server_version_num')
   as integer)/100)
-  in (1600, 1700, 1800) THEN 'YES'
-  ELSE 'NO' END; -- last2 release
-SELECT '<td>', CASE WHEN cast(current_setting('server_version_num') as integer)
-  in (90624,100023,110022,120022, 130023,
-  140021,140022,140023,
-  150016,150017,150018,
-  160012,160013,160014,
-  170008,170009,170010,
-  180002,180003,180004) THEN 'YES'
-  ELSE 'NO' END; -- last2 update
-select '<td>Latest Releases: 18.6, 17.11, 16.15, 15.19, 14.24';
-select '    <br>Latest Unsupported: 13.23, 12.22, 11.22, 10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
+  in (1600, 1700, 1800, 1900) THEN 'YES'
+  ELSE 'NO' END; -- last3 major release
+
+select '<td>Latest Releases: 19.0, 18.7, 17.12, 16.16, 15.20';
+select '    <br>Latest Unsupported: 14.25, 13.23, 12.22, 11.22,';
+select '    10.23, 9.6.24, 9.5.25, 9.4.26, 9.3.25, 9.2.24, 9.1.24, 9.0.23,';
 select '    8.4.21, 8.3.23, 8.2.23, 8.1.23, 8.0.26; 7.4.30, 6.5.3';
 select '</table><p><hr>';
 
@@ -614,7 +629,7 @@ select '<tr><td>'||schemaname||'.'||relname,
  limit 5;
 select '</table><p>' ;
 
-select '<table id="bloat" class="bordered"><caption>Bloated tables (estimated)</caption>' ;
+select '<table id="bloat" class="bordered"><caption>Table Bloat (estimated)</caption>' ;
 select '<tr><th>Table (top size)</th>',
  '<th>Fillfactor</th>',
  '<th>Table Size</th>',
@@ -820,62 +835,151 @@ select '<tr><th>Schema</th>',
  '<th>Bloat%</th>',
  '<th>Tree Depth</th>',
  '<th>idx_scan</th>';
-WITH btree_bloat AS (
+WITH constants AS (
     SELECT
-        nspname AS schema_name,
-        tblname AS table_name,
-        idxname AS index_name,
-        reltuples,
-        relpages,
-        fillfactor,
-        idx_scan,
-        idx_tup_read,
-        (index_tuple_hdr_bm + maxalign - CASE WHEN index_tuple_hdr_bm%maxalign=0 THEN maxalign ELSE index_tuple_hdr_bm%maxalign END + nulldata_size + maxalign - CASE WHEN nulldata_size%maxalign=0 THEN maxalign ELSE nulldata_size%maxalign END)::numeric AS nulldata_hdr_size,
-        (coalesce(avg_width_sum, 0) + 8 + 4)::numeric AS AvgIdxTupleSize,
-        bs,
-        page_hdr
-    FROM (
-        SELECT
-            coalesce(12, 2 * nullhdr2 + 4) AS index_tuple_hdr_bm,
-            maxalign,
-            bs,
-            page_hdr,
-            n.nspname,
-            c.relname AS tblname,
-            c2.relname AS idxname,
-            c2.reltuples,
-            c2.relpages,
-            coalesce(substring(array_to_string(c2.reloptions, ' ') FROM 'fillfactor=([0-9]+)')::smallint, 90) AS fillfactor,
-            stats.avg_width_sum,
-            stats.nullhdr2,
-            stats.null_frac_sum AS nulldata_size,
-            coalesce(sui.idx_scan, 0) AS idx_scan,
-            coalesce(sui.idx_tup_read, 0) AS idx_tup_read
-        FROM pg_catalog.pg_class c
-        JOIN pg_catalog.pg_index i ON c.oid = i.indrelid
-        JOIN pg_catalog.pg_class c2 ON i.indexrelid = c2.oid
-        JOIN pg_catalog.pg_namespace n ON c.relnamespace = n.oid
-        LEFT JOIN pg_catalog.pg_stat_user_indexes sui ON sui.indexrelid = c2.oid
-        LEFT JOIN (
-            SELECT
-                s.schemaname,
-                s.tablename,
-                sum((1 - coalesce(s.null_frac, 0)) * coalesce(s.avg_width, 10))::numeric AS avg_width_sum,
-                sum(coalesce(s.null_frac, 0))::numeric AS null_frac_sum,
-                sum(CASE WHEN s.null_frac > 0 THEN 1 ELSE 0 END)::int AS nullhdr2
-            FROM pg_catalog.pg_stats s
-            GROUP BY s.schemaname, s.tablename
-        ) stats ON n.nspname = stats.schemaname AND c.relname = stats.tablename
-        CROSS JOIN (
-            SELECT 
-                current_setting('block_size')::numeric AS bs,
-                CASE WHEN substring(version() FROM 'PostgreSQL ([0-9]+)') >= '11' THEN 24 ELSE 32 END AS page_hdr,
-                CASE WHEN version() ~ 'amd64|x86_64|ppc64|aarch64' THEN 8 ELSE 4 END AS maxalign
-        ) constants
-        WHERE c2.relpages > 10 
-          AND c2.relam = 403 -- Solo B-Tree
-          AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
-    ) AS s1
+        current_setting('block_size')::numeric AS bs,
+        24::numeric AS page_hdr,
+        16::numeric AS page_special,
+        4::numeric  AS itemid_size,
+        CASE
+            WHEN version() ~ 'mingw32|64-bit|x86_64|ppc64|ia64|amd64|aarch64'
+            THEN 8
+            ELSE 4
+        END::numeric AS maxalign
+),
+index_base AS (
+    SELECT
+        c.oid AS index_oid,
+        c2.oid AS table_oid,
+        n.nspname AS schema_name,
+        c2.relname AS table_name,
+        c.relname AS index_name,
+        c.reltuples,
+        c.relpages,
+        coalesce(substring(
+                array_to_string(c.reloptions, ' ')
+                FROM 'fillfactor=([0-9]+)'
+            )::smallint,
+            90
+        ) AS fillfactor,
+        coalesce(sui.idx_scan, 0) AS idx_scan,
+        coalesce(sui.idx_tup_read, 0) AS idx_tup_read,
+        i.indkey,
+        i.indnatts,
+        i.indnkeyatts,
+        (i.indexprs IS NOT NULL) AS has_expressions,
+        constants.bs,
+        constants.page_hdr,
+        constants.page_special,
+        constants.itemid_size,
+        constants.maxalign
+    FROM pg_catalog.pg_class c
+    JOIN pg_catalog.pg_index i
+      ON i.indexrelid = c.oid
+    JOIN pg_catalog.pg_class c2
+      ON i.indrelid = c2.oid
+    JOIN pg_catalog.pg_namespace n
+      ON c.relnamespace = n.oid
+    LEFT JOIN pg_catalog.pg_stat_user_indexes sui
+      ON sui.indexrelid = c.oid
+    CROSS JOIN constants
+    WHERE c.relpages > 10
+      AND c.relam = (
+          SELECT oid
+          FROM pg_catalog.pg_am
+          WHERE amname = 'btree'
+      )
+      AND n.nspname NOT IN
+          ('pg_catalog', 'information_schema', 'pg_toast')
+      AND c.relkind = 'i'
+),
+index_attributes AS (
+    SELECT
+        b.index_oid,
+        bool_or(k.attnum = 0) AS has_expression,
+        count(*) FILTER (
+            WHERE k.attnum > 0
+        ) AS n_attributes,
+        sum(CASE
+                WHEN k.attnum > 0
+                THEN coalesce(s.avg_width, 0)
+                ELSE 0
+            END)::numeric AS avg_data_size,
+        (1 - exp(sum(ln(GREATEST(1e-10,1 - coalesce(s.null_frac, 0))))))::numeric AS probability_any_null,
+        count(*) FILTER (
+            WHERE k.attnum > 0
+              AND coalesce(s.null_frac, 0) > 0
+        ) AS nullable_attributes
+    FROM index_base b
+    CROSS JOIN LATERAL unnest(b.indkey::smallint[]) AS k(attnum)
+    LEFT JOIN pg_catalog.pg_attribute a
+      ON a.attrelid = b.table_oid
+     AND a.attnum = k.attnum
+     AND a.attnum > 0
+     AND NOT a.attisdropped
+    LEFT JOIN pg_catalog.pg_stats s
+      ON s.schemaname = b.schema_name
+     AND s.tablename = b.table_name
+     AND s.attname = a.attname
+     AND s.inherited = false
+    GROUP BY b.index_oid
+),
+tuple_size AS (
+    SELECT
+        b.*,
+        ia.has_expression,
+        ia.n_attributes,
+        ia.avg_data_size,
+        ia.probability_any_null,
+        (8+CASE
+                WHEN ia.nullable_attributes > 0
+                THEN
+                    ia.probability_any_null
+                    * ceil(ia.n_attributes / 8.0)
+                ELSE 0
+            END + coalesce(ia.avg_data_size, 0) )::numeric AS raw_tuple_size
+    FROM index_base b
+    JOIN index_attributes ia
+      ON ia.index_oid = b.index_oid
+),
+aligned_tuple AS (
+    SELECT
+        t.*,
+        (ceil(raw_tuple_size / maxalign) * maxalign)::numeric AS avg_index_tuple_size
+    FROM tuple_size t
+),
+page_capacity AS (
+    SELECT
+        a.*, (bs - page_hdr - page_special)::numeric AS usable_page_space,
+        floor(( bs - page_hdr - page_special) / ( avg_index_tuple_size + itemid_size ))::numeric AS tuples_per_page,
+        floor((( bs - page_hdr - page_special ) * fillfactor / 100.0)
+               / (avg_index_tuple_size + itemid_size))::numeric AS leaf_tuples_per_page,
+        floor(((bs - page_hdr - page_special) * 0.70)/(avg_index_tuple_size + itemid_size))::numeric AS internal_tuples_per_page
+    FROM aligned_tuple a
+),
+leaf_estimate AS (
+    SELECT p.*,
+        greatest(1,ceil(reltuples/greatest(1, leaf_tuples_per_page)))::bigint AS estimated_leaf_pages
+    FROM page_capacity p
+),
+depth_estimate AS (
+    SELECT l.*,
+        CASE
+            WHEN reltuples <= 0
+              OR internal_tuples_per_page < 2
+            THEN 1
+            ELSE 1 +ceil(log(greatest(1, estimated_leaf_pages::numeric))/
+                    log(greatest(2,internal_tuples_per_page)))::int
+        END AS tree_depth
+    FROM leaf_estimate l
+),
+page_estimate AS (
+    SELECT
+        d.*, (estimated_leaf_pages+coalesce(internal.internal_pages, 0)+1)::bigint AS estimated_pages
+    FROM depth_estimate d
+    LEFT JOIN LATERAL (
+        SELECT sum(ceil( estimated_leaf_pages::numeric / power( greatest(2, internal_tuples_per_page), level) ))::bigint AS internal_pages
+        FROM generate_series( 1, greatest(0, tree_depth - 1)) AS g(level)) internal ON true
 ),
 bloat_calc AS (
     SELECT
@@ -887,10 +991,16 @@ bloat_calc AS (
         idx_scan,
         idx_tup_read,
         bs,
-        (relpages::bigint * bs)::bigint AS current_size,
-        ceil(reltuples * nulldata_hdr_size / (fillfactor::numeric / 100) / (bs - page_hdr))::bigint AS estimated_pages,
-        ceil(log(2, reltuples::numeric + 1) / log(2, GREATEST(2, (bs - page_hdr) / GREATEST(1, AvgIdxTupleSize))))::int AS tree_depth
-    FROM btree_bloat
+        (relpages::bigint * bs::bigint)::bigint AS current_size,
+        (estimated_pages * bs::bigint)::bigint AS estimated_size,
+        estimated_leaf_pages,
+        estimated_pages,
+        tree_depth,
+        avg_index_tuple_size
+    FROM page_estimate
+    WHERE NOT has_expression
+      AND reltuples > 0
+      AND avg_index_tuple_size > 0
 ),
 final_calculation AS (
     SELECT
@@ -898,26 +1008,37 @@ final_calculation AS (
         table_name,
         index_name,
         current_size,
+        estimated_size,
         idx_scan,
         idx_tup_read,
-        GREATEST(0, current_size - (estimated_pages * bs::bigint)) AS bloat_bytes,
-        tree_depth
+        estimated_leaf_pages,
+        estimated_pages,
+        tree_depth,
+        avg_index_tuple_size,
+        GREATEST(0, current_size - estimated_size) AS bloat_bytes
     FROM bloat_calc
 )
 SELECT
-    '<tr><td>'||schema_name,
-    '<td>'||table_name,
-    '<td>'||index_name,
-    '<td class="align-right">', current_size,
-    '<td class="align-right">', pg_size_pretty(current_size) AS current_size_hr,
-    '<td class="align-right">', bloat_bytes,
-    '<td class="align-right">', pg_size_pretty(bloat_bytes) AS bloat_size_hr,
-    '<td class="align-right">', ROUND(bloat_bytes * 100 / (current_size + 1), 2) AS bloat_pct,
-    '<td class="align-right">', tree_depth,
-    '<td class="align-right">', idx_scan
-FROM final_calculation
-ORDER BY bloat_bytes DESC
-LIMIT 10;
+    '<tr><td>' || schema_name,
+    '<td>' || table_name,
+    '<td>' || index_name,
+    '<td class="align-right">',
+    current_size,
+    '<td class="align-right">',
+    pg_size_pretty(current_size) AS current_size_hr,
+    '<td class="align-right">',
+    bloat_bytes,
+    '<td class="align-right">',
+    pg_size_pretty(bloat_bytes) AS bloat_size_hr,
+    '<td class="align-right">',
+    ROUND( bloat_bytes * 100.0/GREATEST(current_size, 1),2) AS bloat_pct,
+    '<td class="align-right">',
+    tree_depth,
+    '<td class="align-right">',
+    idx_scan
+  FROM final_calculation
+ ORDER BY bloat_bytes DESC
+ LIMIT 10;
 select '</table><p>' ;
 
 select '<table id="xid" class="bordered"><caption>Database Max XID Age</caption>' ;
@@ -932,7 +1053,7 @@ SELECT '<tr><td>'||datname||'<td class="align-right">', age(datfrozenxid), '<td 
 select '</table><p>' ;
 
 select '<table class="bordered"><caption>Object Max XID Age</caption>' ;
-select '<tr><th>Object</th>', '<th>Type</th>', '<th>XID age</th>',  '<th>Overdue</th>',  '<th>HR Size</th>', '<th>HR Total Size</th>';
+select '<tr><th>Object</th>', '<th>Type</th>', '<th>XID age</th>', '<th>Overdue</th>', '<th>HR Size</th>', '<th>HR Total Size</th>';
 select  '<th>% AV Aggressive</th>', '<th>% AV Anti-wrap</th>', '<th>% Wraparound</th>';
 WITH db_velocity AS (
     SELECT 
@@ -1414,41 +1535,50 @@ select '</table><p><hr>' ;
 
 
 select '<h2 id="kpi">KPIs</h2>' ;
-
-select '<p><table id="kpi_ope" class="bordered"><caption>Operational KPIs</caption><thead><tr><th scope="col">Statistic</th><th scope="col">Value</th><th scope="col">Advisory Level</th></tr></thead><tbody>' ;
+select '<p><table id="kpi_ope" class="bordered"><caption>Operational KPIs</caption><thead><tr><th scope="col">Statistic</th><th scope="col">Value</th><th scope="col">Advisory Level</th><th scope="col">Status</th></tr></thead><tbody>' ;
 
 select '<tr><td>Supported Version',' <td class="align-right">', --  Major version check
-       round(current_setting('server_version_num')::integer/10000),
-       '<td> &gt; 13';
+       (current_setting('server_version_num')::int/10000)::int,
+       '<td> &gt;= 15',
+       case when (current_setting('server_version_num')::int/10000)::int < 15 then '<td>Warning'
+            when (current_setting('server_version_num')::int/10000)::int = 15 then '<td>Info'
+            else '<td>'
+        end;
 
 select '<tr><td>Connection usage %',' <td class="align-right">', -- Current Connection Utilization Percentage
        round(count(*)/current_setting('max_connections')::numeric*100,2),
-       '<td> &lt; 70'
-  from pg_stat_activity;
+       '<td> &lt; 70',
+       case when round(count(*)/current_setting('max_connections')::numeric*100,2) >= 70 then '<td>Warning' else '' end
+  from pg_stat_activity
+ where backend_type = 'client backend';
 
 select '<tr><td>Active sessions',' <td class="align-right">', -- Active sessions
        count(*),
-       '<td> &lt; 5'
+       '<td> &lt; 5',
+       case when count(*) >= 5 then '<td>Check' else '' end
   from pg_stat_activity
  where state='active'
    and pid <> pg_backend_pid()
-   and backend_type <> 'walsender';
+   and backend_type not in ('walsender', 'autovacuum worker', 'parallel worker');
 
 select '<tr><td>Waiting locks',' <td class="align-right">', -- Waiting locks
        count(*),
-       '<td> = 0'
+       '<td> = 0',
+       case when count(*) > 0 then '<td>Check' else '' end
   from pg_locks
  where not granted;
 
 select '<tr><td>Cumulative Deadlocks',' <td class="align-right">', -- Deadlock count
        deadlocks,
-       '<td> = 0'
+       '<td> = 0',
+       case when deadlocks > 0 then '<td>Info' else '' end
   from pg_stat_database
  where datname=current_database();
 
 select '<tr><td>Long-running active queries',' <td class="align-right">', -- Long-running active queries
        count(*),
-       '<td> = 0'
+       '<td> = 0',
+       case when count(*) > 0 then '<td>Check' else '' end
   from pg_stat_activity
  where state = 'active'
    and backend_type not in ('walsender', 'autovacuum worker', 'parallel worker')
@@ -1456,14 +1586,16 @@ select '<tr><td>Long-running active queries',' <td class="align-right">', -- Lon
 
 select '<tr><td>Idle in Transaction',' <td class="align-right">', -- Idle in Transaction Count
        count(*),
-       '<td> = 0'
+       '<td> = 0',
+       case when count(*) > 0 then '<td>Check' else '' end
   from pg_stat_activity
- where state='idle in transaction'
+ where state in ('idle in transaction', 'idle in transaction (aborted)')
    and (now() - state_change) > '30 second'::interval;
 
 select '<tr><td>Longest running query (s)',' <td class="align-right">',  -- Longest running query (s)
        round(EXTRACT(EPOCH FROM (now() - min(query_start)))::numeric, 2),
-       '<td> &lt; 1800'
+       '<td> &lt; 1800',
+       case when round(EXTRACT(EPOCH FROM (now() - min(query_start)))::numeric, 2) >= 1800 then '<td>Info' else '' end
   from pg_stat_activity
  where state='active'
    and pid <> pg_backend_pid()
@@ -1471,20 +1603,23 @@ select '<tr><td>Longest running query (s)',' <td class="align-right">',  -- Long
 
 select '<tr><td>Oldest transaction age (s)',' <td class="align-right">',  -- Oldest transaction age (s)
        round(EXTRACT(EPOCH FROM (now() - min(xact_start)))::numeric, 2),
-       '<td> &lt; 3600'
+       '<td> &lt; 3600',
+       case when round(EXTRACT(EPOCH FROM (now() - min(xact_start)))::numeric, 2) >= 3600 then '<td>Info' else '' end
   from pg_stat_activity
  where pid <> pg_backend_pid()
    and backend_type <> 'walsender';
 
 select '<tr><td>Invalid indexes',' <td class="align-right">', -- Invalid indexes
        count(*),
-       '<td> = 0'
+       '<td> = 0',
+       case when count(*) > 0 then '<td>Warning' else '' end
   from pg_index i
  where i.indisvalid = false;
 
 select '<tr><td>Max Dead Tuples %',' <td class="align-right">', -- High Dead Tuples Percentage
        round(coalesce(max(n_dead_tup/(n_live_tup+n_dead_tup+0.0)*100.0), 0),2),
-       '<td> &lt; 20'
+       '<td> &lt; 20',
+       case when round(coalesce(max(n_dead_tup/(n_live_tup+n_dead_tup+0.0)*100.0), 0),2) >= 20 then '<td>Check' else '' end
   from pg_stat_all_tables
  where n_dead_tup>1000;
 
@@ -1537,107 +1672,123 @@ WITH raw AS (
 select '<tr><td>Table Bloat %',' <td class="align-right">',    -- Table Bloat Percentage
        round(100 * SUM(bloat_size)::numeric / NULLIF(SUM(real_size),0), 2),
        '<td> &lt; 50',
-       '<tr><td>Largest Bloat Table',' <td class="align-right">',    -- Largest Table Bloat
+       case when round(100 * SUM(bloat_size)::numeric / NULLIF(SUM(real_size),0), 2) >= 50 then '<td>Info' else '' end,
+       '<tr><td>Largest Bloat on Tables',' <td class="align-right">',    -- Largest Table Bloat
        pg_size_pretty(max(bloat_size)::numeric),
-       '<td> &lt; 10 GB'
+       '<td> &lt; 10 GB',
+       case when max(bloat_size) >= 10737418240 then '<td>Info' else '' end
 FROM raw;
 
 select '<tr><td>Autovacuum Freeze %',' <td class="align-right">', -- Autovacuum Freeze
        max(round(100.0 * age(relfrozenxid) / current_setting('vacuum_freeze_table_age')::int, 2)),
-       '<td> &lt; 95'
+       '<td> &lt; 95',
+       case when max(round(100.0 * age(relfrozenxid) / current_setting('vacuum_freeze_table_age')::int, 2)) >= 95 then '<td>Info' else '' end
   FROM pg_class
  WHERE relkind in ('r', 'm', 't');
 
 select '<tr><td>Transaction ID wraparound risk %',' <td class="align-right">', -- Transaction ID wraparound risk
        round(100.0 * (age(datfrozenxid) / (SELECT setting::numeric FROM pg_settings WHERE name = 'autovacuum_freeze_max_age'))::numeric, 2),
-       '<td> &lt; 95'
+       '<td> &lt; 95',
+       case when round(100.0 * (age(datfrozenxid) / (SELECT setting::numeric FROM pg_settings WHERE name = 'autovacuum_freeze_max_age'))::numeric, 2) >= 95 then '<td>Warning' else '' end
   from pg_database
  where datname = current_database();
 
 select '<tr><td>Replication lag',' <td class="align-right">', -- Replication lag 
        max(replay_lag),
-       '<td> &lt; 1'
+       '<td> &lt; 1',
+       case when max(replay_lag) >= '1 second'::interval then '<td>Check' else '' end
   from pg_stat_replication;
 
 select '<tr><td>Inactive Replication Slots',' <td class="align-right">', -- Replication lag 
        count(*),
-       '<td> = 0'
+       '<td> = 0',
+       case when count(*) > 0 then '<td>Warning' else '' end
   from pg_replication_slots
  where not active;
 
 select '<tr><td>Replication slot lag (bytes)',' <td class="align-right">',  -- Replication slot lag (bytes)
        max(pg_current_wal_lsn() - restart_lsn),
-       '<td> &lt; 1 GB'
+       '<td> &lt; 1 GB',
+       case when max(pg_current_wal_lsn() - restart_lsn) >= 1073741824 then '<td>Check' else '' end
   from pg_replication_slots
  where active;
 
 select '</tbody></table><p>' ;
 
 
-select '<p><table id="kpi_perf" class="bordered"><caption>Performance KPIs</caption><thead><tr><th scope="col">Statistic</th><th scope="col">Value</th><th scope="col">Advisory Level</th></tr></thead><tbody>' ;
+select '<p><table id="kpi_perf" class="bordered"><caption>Performance KPIs</caption><thead><tr><th scope="col">Statistic</th><th scope="col">Value</th><th scope="col">Advisory Level</th><th scope="col">Status</th></tr></thead><tbody>' ;
 
 select '<tr><td>Cache Hit %',' <td class="align-right">', -- Cache Hit
-       round(100.0 * blks_hit / (blks_hit + blks_read), 2),
-       '<td> &gt; 95'
+       round(100.0 * blks_hit / nullif(blks_hit + blks_read, 0), 2),
+       '<td> &gt; 95',
+       case when round(100.0 * blks_hit / nullif(blks_hit + blks_read, 0), 2) <= 80 then '<td>Check'
+            when round(100.0 * blks_hit / nullif(blks_hit + blks_read, 0), 2) <= 95 then '<td>Info'
+            else '' end
   from pg_stat_database
  where datname=current_database();
 
 select '<tr><td>Indexes Cache Hit %',' <td class="align-right">', -- Indexes Cache Hit
        round(100.0 * sum(idx_blks_hit) / nullif(sum(idx_blks_hit) + sum(idx_blks_read), 0), 2),
-       '<td> &gt; 98'
+       '<td> &gt; 98',
+       case when round(100.0 * sum(idx_blks_hit) / nullif(sum(idx_blks_hit) + sum(idx_blks_read), 0), 2) <= 90 then '<td>Check'
+            when round(100.0 * sum(idx_blks_hit) / nullif(sum(idx_blks_hit) + sum(idx_blks_read), 0), 2) <= 98 then '<td>Info'
+            else '' end
   from pg_statio_user_indexes;
 
 \if :var_version_17p
 select '<tr><td>Timed Checkpoint %',' <td class="align-right">', -- Timed Checkpoint
        round(100.0*num_timed/nullif(num_requested+num_timed,0),2),
-       '<td> &gt; 90'
+       '<td> &gt; 90',
+       case when round(100.0*num_timed/nullif(num_requested+num_timed,0),2) <= 90 then '<td>Info' else '' end
   from pg_stat_checkpointer;
 
 select '<tr><td>Checkpoints requested %',' <td class="align-right">',   -- Checkpoints requested percentage
        round(100.0 * num_requested / nullif(num_timed + num_requested, 0), 2),
-       '<td> &lt; 10'
+       '<td> &lt; 10',
+       case when round(100.0 * num_requested / nullif(num_timed + num_requested, 0), 2) >= 10 then '<td>Info' else '' end
   from pg_stat_checkpointer;
 \else
 select '<tr><td>Timed Checkpoint %',' <td class="align-right">', -- Timed Checkpoint
        round(100.0*checkpoints_timed/nullif(checkpoints_req+checkpoints_timed,0),2),
-       '<td> &gt; 90'
+       '<td> &gt; 90',
+       case when round(100.0*checkpoints_timed/nullif(checkpoints_req+checkpoints_timed,0),2) <= 90 then '<td>Info' else '' end
   from pg_stat_bgwriter;
 
 select '<tr><td>Checkpoints requested %',' <td class="align-right">',   -- Checkpoints requested percentage
        round(100.0 * checkpoints_req / nullif(checkpoints_timed + checkpoints_req, 0), 2),
-       '<td> &lt; 10'
+       '<td> &lt; 10',
+       case when round(100.0 * checkpoints_req / nullif(checkpoints_timed + checkpoints_req, 0), 2) >= 10 then '<td>Info' else '' end
   from pg_stat_bgwriter;
 \endif
 
 select '<tr><td>Database size',' <td class="align-right">', -- Database size
        pg_size_pretty(pg_database_size(datname)),
-       '<td> &lt; 1 TB'
+       '<td> &lt; 1 TB',
+       case when pg_database_size(datname) >= 1099511627776 then '<td>Info' else '' end
   from pg_database
  where datname=current_database();
 
 \if :var_version_14p
-select '<tr><td>DBcpu %',' <td class="align-right">', -- DB CPU
-       round((sum(total_exec_time) / (EXTRACT(EPOCH FROM (now() - (SELECT stats_reset FROM pg_stat_statements_info))) * 1000) * 100)::numeric, 2),
-       '<td> &lt; 50'
-  from pg_stat_statements
- where toplevel;
-
-select '<tr><td>Active time %',' <td class="align-right">', -- Database Active Time
-       round(active_time::decimal/1000*100/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,2),
-       '<td> &lt; 50'
-  from pg_stat_database
- where datname=current_database();
-
-select '<tr><td>Connections /second',' <td class="align-right">', -- Connections /second
-       round(sessions::decimal/1000*100/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,2),
-       '<td> &lt; 10'
-  from pg_stat_database
- where datname=current_database();
-
 select '<tr><td>Statements /second',' <td class="align-right">',
        round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,2) Exec,
-       '<td> &lt; 2000'
-  from pg_stat_statements, pg_stat_statements_info where toplevel;
+       '<td> &lt; 2000',
+       case when round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,2) >= 2000 then '<td>Info' else '' end
+  from pg_stat_statements, pg_stat_statements_info
+ where toplevel;
+
+select '<tr><td>Explicit COMMIT /second',' <td class="align-right">',
+       round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,2) Exec,
+       '<td> &lt; 1000',
+       case when round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,2) >= 1000 then '<td>Info' else '' end
+  from pg_stat_statements, pg_stat_statements_info
+ where query ilike 'COMMIT%';
+
+select '<tr><td>DBcpu %',' <td class="align-right">', -- DB CPU
+       round((sum(total_exec_time) / (EXTRACT(EPOCH FROM (now() - (SELECT stats_reset FROM pg_stat_statements_info))) * 1000) * 100)::numeric, 2),
+       '<td> &lt; 100',
+       case when round((sum(total_exec_time) / (EXTRACT(EPOCH FROM (now() - (SELECT stats_reset FROM pg_stat_statements_info))) * 1000) * 100)::numeric, 2) >= 100 then '<td>Info' else '' end
+  from pg_stat_statements
+ where toplevel;
 
 WITH base_stats AS (
     SELECT 
@@ -1668,41 +1819,142 @@ filtered_stats AS (
 select '<tr><td>Statements jittering %',' <td class="align-right">',
        round( (sum(stddev_exec_time * calls) / 
                NULLIF(sum(mean_exec_time * calls), 0))::numeric *100, 2)  as db_jitter_kpi,      
-       '<td> &lt; 100'
+       '<td> &lt; 100',
+       case when round( (sum(stddev_exec_time * calls) /
+               NULLIF(sum(mean_exec_time * calls), 0))::numeric *100, 2) >= 100 then '<td>Info' else '' end
   FROM filtered_stats
  group by global_total_time
 HAVING sum(calls) > 2;
-
 \endif
 
-select '<tr><td>TPS',' <td class="align-right">', -- TPS
-       round(xact_commit/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::decimal,2),
-       '<td> &lt; 1000'
-  from pg_stat_database
- where datname=current_database();
+\if :var_as_admin
+select '<tr><td>Average active sessions (create / reset / restart)',' <td class="align-right">',  -- Active Sessions
+       round(active_time::decimal/1000/EXTRACT(EPOCH FROM (now()-(pg_stat_file('base/'|| oid ||'/PG_VERSION')).modification))::decimal,2),
+       ' / ',
+       round(active_time::decimal/1000/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2),
+       ' / ',
+       round(active_time::decimal/1000/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))::decimal,2),
+       '<td> &lt; 1.00',
+       case when round(active_time::decimal/1000/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2) >= 1
+            then '<td>Info' else '' end
+   from pg_stat_database, pg_database
+  where pg_stat_database.datname=current_database()
+    and pg_database.datname='template0';
+
+select '<tr><td>Connections /second (create / reset / restart)',' <td class="align-right">', -- Connections /second
+       round(sessions::decimal/EXTRACT(EPOCH FROM (now()-(pg_stat_file('base/'|| oid ||'/PG_VERSION')).modification))::decimal,2),
+       ' / ',
+       round(sessions::decimal/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2),
+       ' / ',
+       round(sessions::decimal/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))::decimal,2),
+       '<td> &lt; 10',
+       case when round(sessions::decimal/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2) >= 10
+            then '<td>Info' else '' end
+   from pg_stat_database, pg_database
+  where pg_stat_database.datname=current_database()
+    and pg_database.datname='template0';
+
+select '<tr><td>TPS (create / reset / restart)',' <td class="align-right">', -- TPS
+       round(xact_commit/EXTRACT(EPOCH FROM (now()-(pg_stat_file('base/'|| oid ||'/PG_VERSION')).modification))::decimal,2),
+       ' / ',
+       round(xact_commit/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2),
+       ' / ',
+       round(xact_commit/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))::decimal,2),
+       '<td> &lt; 1000',
+       case when round(xact_commit/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2) >= 1000
+            then '<td>Info' else '' end
+   from pg_stat_database, pg_database
+  where pg_stat_database.datname=current_database()
+    and pg_database.datname='template0';
+
+select '<tr><td>Inserted rows /hour (create / reset / restart)',' <td class="align-right">', -- Rows inserted /hour
+       replace(replace(pg_size_pretty(round((tup_inserted::decimal*3600/EXTRACT(EPOCH FROM (now()-(pg_stat_file('base/'|| oid ||'/PG_VERSION')).modification)))::numeric, 2)),'bytes',''),'B',''),
+       ' / ',
+       replace(replace(pg_size_pretty(round((tup_inserted::decimal*3600/EXTRACT(EPOCH FROM (now()-stats_reset)))::numeric, 2)),'bytes',''),'B',''),
+       ' / ',
+       replace(replace(pg_size_pretty(round((tup_inserted::decimal*3600/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::numeric, 2)),'bytes',''),'B',''),
+       '<td> &lt; 1 M',
+       case when tup_inserted::decimal*3600/EXTRACT(EPOCH FROM (now()-stats_reset)) >= 1048576
+            then '<td>Info' else '' end
+   from pg_stat_database, pg_database
+  where pg_stat_database.datname=current_database()
+    and pg_database.datname='template0';
+
+select '<tr><td>Temporary bytes /hour (create / reset / restart)',' <td class="align-right">', -- Temporary bytes written /hour
+       pg_size_pretty(round((temp_bytes::decimal*3600/EXTRACT(EPOCH FROM (now()-(pg_stat_file('base/'|| oid ||'/PG_VERSION')).modification)))::numeric, 2)),
+       ' / ',
+       pg_size_pretty(round((temp_bytes::decimal*3600/EXTRACT(EPOCH FROM (now()-stats_reset)))::numeric, 2)),
+       ' / ',
+       pg_size_pretty(round((temp_bytes::decimal*3600/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::numeric, 2)),
+       '<td> &lt; 1 GB',
+       case when temp_bytes::decimal*3600/EXTRACT(EPOCH FROM (now()-stats_reset)) >= 1073741824
+            then '<td>Info' else '' end
+   from pg_stat_database, pg_database
+  where pg_stat_database.datname=current_database()
+    and pg_database.datname='template0';
+\else
+select '<tr><td>Average active sessions (reset / restart)',' <td class="align-right">', 
+       round(active_time::decimal/1000/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2),
+       ' / ',
+       round(active_time::decimal/1000/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))::decimal,2),
+       '<td> &lt; 1',
+       case when round(active_time::decimal/1000/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2) >= 1
+            then '<td>Info' else '' end
+   from pg_stat_database
+  where pg_stat_database.datname=current_database();
+
+select '<tr><td>Connections /second (reset / restart)',' <td class="align-right">', -- Connections /second
+       round(sessions::decimal/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2),
+       ' / ',
+       round(sessions::decimal/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))::decimal,2),
+       '<td> &lt; 10',
+       case when round(sessions::decimal/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2) >= 10
+            then '<td>Info' else '' end
+   from pg_stat_database
+  where pg_stat_database.datname=current_database();
+
+select '<tr><td>TPS (reset / restart)',' <td class="align-right">', -- TPS
+       round(xact_commit/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2),
+       ' / ',
+       round(xact_commit/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))::decimal,2),
+       '<td> &lt; 1000',
+       case when round(xact_commit/EXTRACT(EPOCH FROM (now()-stats_reset))::decimal,2) >= 1000
+            then '<td>Info' else '' end
+   from pg_stat_database
+  where pg_stat_database.datname=current_database();
+
+select '<tr><td>Inserted rows /hour (reset / restart)',' <td class="align-right">', -- Rows inserted /hour
+       replace(replace(pg_size_pretty(round((tup_inserted::decimal*3600/EXTRACT(EPOCH FROM (now()-stats_reset)))::numeric, 2)),'bytes',''),'B',''),
+       ' / ',
+       replace(replace(pg_size_pretty(round((tup_inserted::decimal*3600/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::numeric, 2)),'bytes',''),'B',''),
+       '<td> &lt; 1 M',
+       case when tup_inserted::decimal*3600/EXTRACT(EPOCH FROM (now()-stats_reset)) >= 1048576
+            then '<td>Info' else '' end
+   from pg_stat_database
+  where pg_stat_database.datname=current_database();
+
+select '<tr><td>Temporary bytes /hour (reset / restart)',' <td class="align-right">', -- Temporary bytes written /hour
+       pg_size_pretty(round((temp_bytes::decimal*3600/EXTRACT(EPOCH FROM (now()-stats_reset)))::numeric, 2)),
+       ' / ',
+       pg_size_pretty(round((temp_bytes::decimal*3600/EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())))::numeric, 2)),
+       '<td> &lt; 1 GB',
+       case when temp_bytes::decimal*3600/EXTRACT(EPOCH FROM (now()-stats_reset)) >= 1073741824
+            then '<td>Info' else '' end
+   from pg_stat_database
+  where pg_stat_database.datname=current_database();
+\endif
 
 select '<tr><td>Rollback %',' <td class="align-right">', -- Rollback Ratio
-       round((xact_rollback::decimal/xact_commit)*100, 2),
-       '<td> &lt; 1'
-  from pg_stat_database
- where datname=current_database();
-
-select '<tr><td>Inserted rows /hour',' <td class="align-right">', -- Rows inserted /hour
-       replace(replace(pg_size_pretty(round(tup_inserted::decimal*3600/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)),
-                 EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())), 2))::decimal),'bytes',''),'B',''),
-       '<td> &lt; 1 M'
-  from pg_stat_database
- where datname=current_database();
-
-select '<tr><td>Temporary bytes /hour',' <td class="align-right">', -- Temporary bytes writen /hour
-       pg_size_pretty(round(temp_bytes::decimal*3600/coalesce(EXTRACT(EPOCH FROM (now()-stats_reset)), EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time())), 2))::decimal),
-       '<td> &lt; 1 GB'
+       round((xact_rollback::decimal/nullif(xact_commit,0))*100, 2),
+       '<td> &lt; 1',
+       case when round((xact_rollback::decimal/nullif(xact_commit,0))*100, 2) >= 1 then '<td>Info' else '' end
   from pg_stat_database
  where datname=current_database();
 
 select '<tr><td>Unindexed tables',' <td class="align-right">', -- Unindexed tables
        count(*),
-       '<td> = 0'
+       '<td> = 0',
+       case when count(*) > 0 then '<td>Info' else '' end
   from information_schema.tables tab
   left join pg_indexes tco 
          on tab.table_schema = tco.schemaname
@@ -1710,12 +1962,13 @@ select '<tr><td>Unindexed tables',' <td class="align-right">', -- Unindexed tabl
          and (tco.indexdef like 'CREATE INDEX%' OR tco.indexdef like 'CREATE UNIQUE%')
  where tab.table_type = 'BASE TABLE'
    and tab.table_schema not in ('pg_catalog', 'information_schema', 'sys')
-   and tco. indexname is null;
+   and tco.indexname is null;
 
 select '<tr><td>Unused indexes',' <td class="align-right">', -- Unused indexes
        count(*),
-       '<td> = 0'
-  FROM pg_catalog.pg_stat_user_indexes s
+       '<td> = 0',
+       case when count(*) > 0 then '<td>Info' else '' end
+   FROM pg_catalog.pg_stat_user_indexes s
   JOIN pg_catalog.pg_index i ON s.indexrelid = i.indexrelid
  WHERE s.idx_scan = 0      
    AND 0 <>ALL (i.indkey)  
@@ -1725,9 +1978,10 @@ select '<tr><td>Unused indexes',' <td class="align-right">', -- Unused indexes
 
 select '<tr><td>Duplicate indexes',' <td class="align-right">', -- Duplicate indexes
        count(*),
-       '<td> = 0'
-  FROM pg_index i
-  JOIN pg_class ct ON i.indrelid=ct.oid
+       '<td> = 0',
+       case when count(*) > 0 then '<td>Info' else '' end
+   FROM pg_index i
+   JOIN pg_class ct ON i.indrelid=ct.oid
   JOIN pg_class ci ON i.indexrelid=ci.oid
   JOIN pg_namespace ni ON ci.relnamespace=ni.oid
   JOIN pg_index ii ON ii.indrelid=i.indrelid
@@ -1750,48 +2004,62 @@ select '<tr><td>Duplicate indexes',' <td class="align-right">', -- Duplicate ind
 
 select '<tr><td>Too much objects',' <td class="align-right">', -- Too much objects
        count(*),
-       '<td> &lt; 20 K'
+       '<td> &lt; 20 K',
+       case when count(*) >= 20000 then '<td>Info' else '' end
  from pg_class, pg_roles
 where relowner=pg_roles.oid
   and rolname not in ('enterprisedb', 'alloydbadmin', 'cloudsqladmin');
 
-select '<tr><td>Overpartitioning count',' <td class="align-right">', -- Overpartitioning count (small partitions excluding newest)
+select '<tr><td>Overpartitioning count',' <td class="align-right">', -- Overpartitioning count (small partitions excluding newest per parent)
        count(sp.oid),
-       '<td> = 0'
-  from (
+       '<td> = 0',
+       case when count(sp.oid) > 0 then '<td>Info' else '' end
+   from (
         SELECT p.oid, p.relname, p.reltuples, pg_relation_size(p.oid) as rel_size
         FROM pg_class p
         JOIN pg_namespace n ON n.oid = p.relnamespace
+        JOIN pg_inherits i ON i.inhrelid = p.oid
         WHERE p.relispartition
           AND p.relkind = 'r' -- regular table
           AND n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
           AND (pg_relation_size(p.oid) < 8192 * 10 OR p.reltuples < 1000)
     ) AS sp
-    WHERE sp.oid NOT IN (SELECT oid FROM pg_class WHERE relispartition AND relkind = 'r' ORDER BY oid DESC LIMIT 1);
+    WHERE sp.oid NOT IN (
+        SELECT DISTINCT ON (i.inhparent) i.inhrelid
+        FROM pg_inherits i
+        JOIN pg_class c ON c.oid = i.inhrelid
+        WHERE c.relispartition AND c.relkind = 'r'
+        ORDER BY i.inhparent, i.inhrelid DESC);
 
 select '</tbody></table><p>' ;
 
 
-select '<p><table id="kpi_sec" class="bordered"><caption>Security KPIs</caption><thead><tr><th scope="col">Statistic</th><th scope="col">Value</th><th scope="col">Security Check</th><th scope="col">Findings</th></tr></thead><tbody>' ;
+select '<p><table id="kpi_sec" class="bordered"><caption>Security KPIs</caption><thead><tr><th scope="col">Statistic</th><th scope="col">Value</th><th scope="col">Security Check</th><th scope="col">Findings</th><th scope="col">Status</th></tr></thead><tbody>' ;
 
 select '<tr><td>Supported Version',' <td class="align-right">', --  Major version check
        (current_setting('server_version_num')::int/10000)::int,
-       '<td> &gt; 13', '<td>'||version();
+       '<td> &gt;= 15', '<td>'||substring(version() for  position('on' in version())-1),
+       case when (current_setting('server_version_num')::int/10000)::int < 15 then '<td>Warning'
+            when (current_setting('server_version_num')::int/10000)::int = 15 then '<td>Info'
+            else '<td>'
+        end;
 
-SELECT '<tr><td>Known CVE',' <td class="align-right">',
-       substring(current_setting('server_version') FROM '^[0-9]+\.[0-9]+'),
+SELECT '<tr><td>Known CVE',' <td class="align-right">', ' ',
        '<td> = 0', '<td><a href="https://meob.github.io/PG_CVE?version=' ||
-       substring(current_setting('server_version') FROM '^[0-9]+\.[0-9]+') || '" target="_blank">PG_CVE</a> (external link)';
+       substring(current_setting('server_version') FROM '^[0-9]+\.[0-9]+') || '" target="_blank">PG_CVE</a> on ',
+       substring(current_setting('server_version') FROM '^[0-9]+\.[0-9]+'), ' (external link)','<td>Check';
 
 select '<tr><td>Safe password encryption',' <td class="align-right">',
        case current_setting('password_encryption') when 'scram-sha-256' then 1 else 0 end,
        '<td> = 1',
-       '<td>', current_setting('password_encryption');
+       '<td>', current_setting('password_encryption'),
+       case current_setting('password_encryption') when 'scram-sha-256' then '' else '<td>Check' end;
 
 SELECT '<tr><td>Connection not using SSL',' <td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'||string_agg(s.pid::text || ' (' || COALESCE(a.usename, 'unknown') || ')', ', ')
+       '<td>'||string_agg(s.pid::text || ' (' || COALESCE(a.usename, 'unknown') || ')', ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   FROM pg_stat_ssl s
   JOIN pg_stat_activity a ON s.pid = a.pid
  WHERE NOT s.ssl
@@ -1803,7 +2071,8 @@ SELECT '<tr><td>Connection not using SSL',' <td class="align-right">',
 \if :var_as_admin
 select '<tr><td>Weak HBA rules',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(auth_method, ', ')
+       '<td> = 0', '<td>'||string_agg(auth_method, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_hba_file_rules
  where (auth_method = 'trust' AND type = 'host' AND address NOT IN ('127.0.0.1/32', '::1/128'))
     or (auth_method = 'password')
@@ -1811,14 +2080,16 @@ select '<tr><td>Weak HBA rules',' <td class="align-right">',
 
 select '<tr><td>Users with MD5 hashing',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(rolname, ', ')
+       '<td> = 0', '<td>'||string_agg(rolname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_authid
  where rolcanlogin
    and rolpassword LIKE 'md5%';
 
 select '<tr><td>Empty or external password',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(rolname, ', ' order by rolname)
+       '<td> = 0', '<td>'||string_agg(rolname, ', ' order by rolname),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_authid
  where rolcanlogin
    and (rolpassword IS NULL OR rolpassword = '');
@@ -1826,7 +2097,8 @@ select '<tr><td>Empty or external password',' <td class="align-right">',
 
 select '<tr><td>Additional Superusers',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(rolname, ', ')
+       '<td> = 0', '<td>'||string_agg(rolname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_roles
  where rolcanlogin and rolsuper
    and rolname not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin');
@@ -1834,7 +2106,8 @@ select '<tr><td>Additional Superusers',' <td class="align-right">',
 select '<tr><td>Users inheriting SUPERUSER',' <td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'||string_agg(r.rolname, ', ')
+       '<td>'||string_agg(r.rolname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_auth_members m
   join pg_roles r on m.member = r.oid
   join pg_roles s on m.roleid = s.oid
@@ -1844,7 +2117,8 @@ select '<tr><td>Users inheriting SUPERUSER',' <td class="align-right">',
 
 select '<tr><td>CREATEROLE, CREATEDB, BYPASSRLS Users',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(rol_flag, ', ')
+       '<td> = 0', '<td>'||string_agg(rol_flag, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from (
 select rolname||':CREATEROLE' as rol_flag
   from pg_roles
@@ -1867,7 +2141,8 @@ select rolname||':BYPASSRLS'
 
 select '<tr><td>Replication Users',' <td class="align-right">',
        count(*),
-       '<td> &lt;= 1', '<td>'||string_agg(rolname, ', ')
+       '<td> &lt;= 1', '<td>'||string_agg(rolname, ', '),
+       case when count(*)>1 then '<td>Check' else '' end
   from pg_roles
  where rolreplication
    and rolname not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin');
@@ -1875,7 +2150,8 @@ select '<tr><td>Replication Users',' <td class="align-right">',
 select '<tr><td>Additional grants to RO users',' <td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'||substring(string_agg(grantee||' '|| privilege_type|| ' ON '||table_name, ', ' order by grantee), 1,180)||' ...'
+       '<td>'||substring(string_agg(grantee||' '|| privilege_type|| ' ON '||table_name, ', ' order by grantee), 1,180)||' ...',
+       case when count(*)>0 then '<td>Check' else '' end
   from information_schema.table_privileges
  where grantee not in ('postgres', 'rdsadmin', 'enterprisedb', 'alloydbadmin', 'cloudsqladmin', 'admin')
    and table_schema not in ('pg_catalog', 'information_schema', 'sys')
@@ -1886,42 +2162,44 @@ select '<tr><td>Additional grants to RO users',' <td class="align-right">',
 select '<tr><td>Users inheriting unexpected roles',' <td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'||string_agg(r.rolname, ', ')
+       '<td>'||string_agg(r.rolname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_auth_members m
   join pg_roles r on m.member = r.oid
   join pg_roles s on m.roleid = s.oid
  where r.rolcanlogin
    and (   (s.rolname ilike '%_own' and r.rolname ilike '%_app')
-        OR
-           (s.rolname ilike '%_own' and r.rolname ilike 'u%')
-        OR
-           (s.rolname ilike '%_own' and r.rolname ilike '%_rw')
-        OR
-           (s.rolname ilike '%_own' and r.rolname ilike '%_ro')
+        OR (s.rolname ilike '%_own' and r.rolname ilike 'u%')
+        OR (s.rolname ilike '%_own' and r.rolname ilike '%_rw')
+        OR (s.rolname ilike '%_own' and r.rolname ilike '%_ro')
        );
 
 select '<tr><td>Password expiration',' <td class="align-right">',
        count(*),
-       '<td> &gt; 0', '<td>'||string_agg(rolname, ', ')
+       '<td> &gt; 0', '<td>',string_agg(rolname, ', '),
+       case when count(*)>0 then '<td>Info' else '' end
   from pg_roles
  where  rolvaliduntil is not null;
 
 select '<tr><td>Database PUBLIC CONNECT',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(datname, ', ')
+       '<td> = 0', '<td>'||string_agg(datname, ', '),
+       case when count(*)>0 then '<td>Info' else '' end
   FROM pg_database
  WHERE has_database_privilege('public', datname, 'CONNECT');
 
 select '<tr><td>Schema PUBLIC CREATE',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(nspname, ', ')
+       '<td> = 0', '<td>'||string_agg(nspname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   FROM pg_namespace
  WHERE nspname='public'
    AND has_schema_privilege('public', oid, 'CREATE');
 
 select '<tr><td>Public schema created by non‑superuser',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(nspname, ', ')
+       '<td> = 0', '<td>'||string_agg(nspname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_namespace
  where nspname = 'public'
    and nspowner not in (select oid from pg_roles where rolsuper or rolname='pg_database_owner');
@@ -1929,7 +2207,8 @@ select '<tr><td>Public schema created by non‑superuser',' <td class="align-rig
 select '<tr><td>Schemas writable by PUBLIC',' <td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'||string_agg(nspname, ', ')
+       '<td>'||string_agg(nspname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
 from pg_namespace
 where nspname not like 'pg_%'
   and has_schema_privilege('public', oid, 'CREATE');
@@ -1938,7 +2217,8 @@ SELECT '<tr><td>Objects in public schema with PUBLIC access',
        '<td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'||string_agg(c.relname, ', ' order by c.relname)
+       '<td>'||string_agg(c.relname, ', ' order by c.relname),
+       case when count(*)>0 then '<td>Check' else '' end
   FROM pg_class c
   JOIN pg_namespace n ON c.relnamespace = n.oid
  WHERE n.nspname = 'public'
@@ -1958,7 +2238,8 @@ SELECT '<tr><td>Objects in public schema with PUBLIC access',
 select '<tr><td>Objects owned by RO/RW users',' <td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'||substring( string_agg(nspname||'.'||relname, ', '), 1,127)||' ...'
+       '<td>'||substring( string_agg(nspname||'.'||relname, ', '), 1,127)||' ...',
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_class, pg_roles, pg_namespace
  where relowner=pg_roles.oid
    and relnamespace=pg_namespace.oid
@@ -1968,13 +2249,15 @@ select '<tr><td>Objects owned by RO/RW users',' <td class="align-right">',
 select '<tr><td>Large Objects',' <td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'
+       '<td>',
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_largeobject_metadata;
 
 select '<tr><td>Tables with RLS',' <td class="align-right">',
        count(*),
        '<td> &gt; 0',
-       '<td>'||substring( string_agg(relname, ', '), 1,127)||' ...'
+       '<td>'||substring( string_agg(relname, ', '), 1,127)||' ...',
+       case when count(*)>0 then '<td>Info' else '' end
 from pg_class c
 join pg_namespace n on n.oid=c.relnamespace
 where c.relkind='r' -- exclude partitions?
@@ -1983,7 +2266,8 @@ where c.relkind='r' -- exclude partitions?
 
 select '<tr><td>Functions with SECURITY DEFINER',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||substring( string_agg(n.nspname||'.'||p.proname, ', '), 1,127)||' ...'
+       '<td> = 0', '<td>'||substring( string_agg(n.nspname||'.'||p.proname, ', '), 1,127)||' ...',
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_proc p
   join pg_roles o on p.proowner=o.oid
   join pg_namespace n on p.pronamespace=n.oid
@@ -1992,7 +2276,8 @@ select '<tr><td>Functions with SECURITY DEFINER',' <td class="align-right">',
 
 select '<tr><td>SECURITY DEFINER with unrestricted search_path',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(n.nspname||'.'||p.proname, ', ')
+       '<td> = 0', '<td>'||substring( string_agg(n.nspname||'.'||p.proname, ', '), 1,1024),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_proc p
   join pg_roles o on p.proowner=o.oid
   join pg_namespace n on p.pronamespace=n.oid
@@ -2006,7 +2291,8 @@ select '<tr><td>SECURITY DEFINER with unrestricted search_path',' <td class="ali
 
 select '<tr><td>Unsafe procedural language functions',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(proname, ', ')
+       '<td> = 0', '<td>'||string_agg(proname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_proc p
   join pg_language l on p.prolang = l.oid
  where l.lanname in ('plperlu', 'plperl', 'plpython2u', 'plpython3u', 'pltcl', 'pltclu', 'plv8');
@@ -2014,7 +2300,8 @@ select '<tr><td>Unsafe procedural language functions',' <td class="align-right">
 select '<tr><td>Default PUBLIC EXECUTE on functions',' <td class="align-right">',
        count(*),
        '<td> = 0',
-       '<td>'||substring( string_agg(n.nspname||'.'||p.proname, ', '), 1,127)||' ...'
+       '<td>'||substring( string_agg(n.nspname||'.'||p.proname, ', '), 1,127)||' ...',
+       case when count(*)>0 then '<td>Check' else '' end
 from pg_proc p
 join pg_namespace n on p.pronamespace=n.oid
 join pg_roles r on p.proowner=r.oid
@@ -2024,7 +2311,8 @@ where has_function_privilege('public', p.oid, 'EXECUTE')
 
 select '<tr><td>Additional Extensions',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(e.extname, ', ')
+       '<td> = 0', '<td>'||string_agg(e.extname, ', '),
+       case when count(*)>0 then '<td>Info' else '' end
   from pg_extension e
   where e.extname not in (
        'plpgsql', 'pg_stat_statements'   
@@ -2032,7 +2320,8 @@ select '<tr><td>Additional Extensions',' <td class="align-right">',
 
 select '<tr><td>Chancy Extensions',' <td class="align-right">',
        count(*),
-       '<td> = 0', '<td>'||string_agg(e.extname, ', ')
+       '<td> = 0', '<td>'||string_agg(e.extname, ', '),
+       case when count(*)>0 then '<td>Check' else '' end
   from pg_extension e
   where e.extname in (
        'dblink', 'file_fdw', 'adminpack'  -- postgres_fdw pgcrypto uuid-ossp xml2 intarray hstore ltree
@@ -2178,7 +2467,7 @@ FROM
 SELECT '<tr><td>Index',
   '<td class="align-right">'||sum(idx_blks_read) as idx_read,
   '<td class="align-right">'||sum(idx_blks_hit)  as idx_hit,
-  '<td class="align-right">'||trunc(100*(sum(idx_blks_hit) - sum(idx_blks_read)) / nullif(sum(idx_blks_hit),0),2) as ratio
+  '<td class="align-right">'||trunc(100*(sum(idx_blks_hit)) / nullif(sum(idx_blks_hit)+sum(idx_blks_read),0),2) as ratio
 FROM 
   pg_statio_user_indexes;
 select '</tbody></table><p>' ;
@@ -2189,7 +2478,7 @@ select '<p><table class="bordered sortable"><caption>Statement Statistics Summar
 \if :var_version_17p
     select '<tr><td>', datname,
        '<td class="align-right">'||sum(calls),
-       '<td class="align-right">'||round(sum(total_exec_time)),
+       '<td class="align-right">'||round(sum(total_exec_time)::numeric/1000,3),
        '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
        '    <td>', round(sum( (shared_blk_read_time+shared_blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
        '<td class="align-right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
@@ -2199,7 +2488,7 @@ select '<p><table class="bordered sortable"><caption>Statement Statistics Summar
  group by datname;
 select '<tr><td>TOTAL',
        '<td class="align-right">'||sum(calls),
-       '<td class="align-right">'||round(sum(total_exec_time)),
+       '<td class="align-right">'||round(sum(total_exec_time)::numeric/1000,3),
        '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
        '    <td>', round(sum( (shared_blk_read_time+shared_blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
        '<td class="align-right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
@@ -2207,7 +2496,7 @@ select '<tr><td>TOTAL',
 \else
 select '<tr><td>', datname,
        '<td class="align-right">'||sum(calls),
-       '<td class="align-right">'||round(sum(total_exec_time)),
+       '<td class="align-right">'||round(sum(total_exec_time)::numeric/1000,3),
        '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
        '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
        '<td class="align-right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
@@ -2217,7 +2506,7 @@ select '<tr><td>', datname,
  group by datname;
 select '<tr><td>TOTAL',
        '<td class="align-right">'||sum(calls),
-       '<td class="align-right">'||round(sum(total_exec_time)),
+       '<td class="align-right">'||round(sum(total_exec_time)::numeric/1000,3),
        '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) DBcpu,
        '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-stats_reset))*1000) )::numeric,5) IOcpu,
        '<td class="align-right">'||round(sum( (calls)/(EXTRACT(EPOCH FROM (now()-stats_reset))) )::numeric,3) Exec
@@ -2226,7 +2515,7 @@ select '<tr><td>TOTAL',
 \else
 select '<tr><td>', datname,
        '<td class="align-right">'||sum(calls),
-       '<td class="align-right">'||round(sum(total_exec_time)),
+       '<td class="align-right">'||round(sum(total_exec_time)::numeric/1000,3),
        '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
        '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
   from pg_stat_statements, pg_database
@@ -2234,7 +2523,7 @@ select '<tr><td>', datname,
  group by datname;
 select '<tr><td>TOTAL',
        '<td class="align-right">'||sum(calls),
-       '<td class="align-right">'||round(sum(total_exec_time)),
+       '<td class="align-right">'||round(sum(total_exec_time)::numeric/1000,3),
        '    <td>', round(sum( (total_exec_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
        '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
   from pg_stat_statements;
@@ -2242,7 +2531,7 @@ select '<tr><td>TOTAL',
 \else
 select '<tr><td>', datname,
        '<td class="align-right">'||sum(calls),
-       '<td class="align-right">'||round(sum(total_time)),
+       '<td class="align-right">'||round(sum(total_time)::numeric/1000,3),
        '    <td>', round(sum( (total_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
        '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
   from pg_stat_statements, pg_database
@@ -2250,7 +2539,7 @@ select '<tr><td>', datname,
  group by datname;
 select '<tr><td>TOTAL',
        '<td class="align-right">'||sum(calls),
-       '<td class="align-right">'||round(sum(total_time)),
+       '<td class="align-right">'||round(sum(total_time)::numeric/1000,3),
        '    <td>',  round(sum( (total_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) DBcpu,
        '    <td>', round(sum( (blk_read_time+blk_write_time)/(EXTRACT(EPOCH FROM (now()-pg_postmaster_start_time()))*1000) )::numeric,5) IOcpu
   from pg_stat_statements;
@@ -2341,7 +2630,7 @@ select '</tbody></table><p>' ;
 select '<p><a id="slow"></a><p>' ;
 select '<p><table class="bordered sfont"><caption>Slowest Statements</caption><thead><tr><th scope="col">Query</th><th scope="col">User</th><th scope="col">Calls</th><th scope="col">Average (sec.)</th><th scope="col">Max (sec.)</th><th scope="col">Total Time</th><th scope="col">Reads /Call</th><th scope="col">Rows /Call</th><th scope="col">Hit Ratio%</th>' ;
 \if :var_version_13p
-SELECT '<th>WAL MB</th> <th>tmp MB</th> <th>QueryID</th> </thead><tbody>';
+SELECT '<th>WAL /Call</th> <th>tmp /Call</th> <th>QueryID</th> </thead><tbody>';
 SELECT '<tr><td><div class="truncate">'||replace(substring(replace(replace(query,'<','&lt;'), '>','&gt;'),1,8192),',',', '),
   '</div> <td>'||pg_get_userbyid(userid), '<td class="align-right">'||calls,
   '<td class="align-right">'||round((total_exec_time::numeric / nullif(calls::numeric, 0))/1000,3),
@@ -2351,12 +2640,13 @@ SELECT '<tr><td><div class="truncate">'||replace(substring(replace(replace(query
                           '</span>',
   '<td class="align-right">'||round((rows::numeric / nullif(calls::numeric, 0)),2),
   '<td class="align-right">'||coalesce(round((100.0 * shared_blks_hit / nullif(shared_blks_hit + shared_blks_read, 0)),2),0)  AS hit_percent,
-  '<td class="align-right">'||round((wal_bytes::numeric)/(1024*1024),0),
-  '<td class="align-right">'||coalesce(round((temp_blks_written::numeric)/128/nullif(calls::numeric, 0),0), 0),
+  '<td class="align-right">'||pg_size_pretty( coalesce(round((wal_bytes::numeric)/nullif(calls::numeric, 0),0),0) ),
+  '<td class="align-right">'||pg_size_pretty( coalesce(round((temp_blks_written::numeric)*8192/nullif(calls::numeric, 0),0),0) ),
   '<td>'||queryid
   FROM pg_stat_statements 
  WHERE pg_get_userbyid(userid) not in ('enterprisedb', 'efm', 'alloydbadmin', 'cloudsqladmin')  -- Comment if needed
    AND calls>0
+   AND query not like '%pg_backup_%'
  ORDER BY max_exec_time DESC
  LIMIT 10;
 \else
@@ -2424,7 +2714,7 @@ select '<tr><td>'||n.nspname,
  limit 20;
 select '</tbody></table><p>' ;
 
-select '<p><table class="bordered"><caption>Tables Caching</caption><thead><tr><th scope="col">Schema</th><th scope="col">Table</th><th scope="col">Heap Reads</th><th scope="col">Index Reads</th><th scope="col">TOAST Reads</th><th scope="col">Heap Hit Ratio%</th><th scope="col">Index Hit Ratio%</th><th scope="col">TOAST Hit Ratio%</th></tr></thead><tbody>' ;
+select '<p><table class="bordered"><caption>Table Caching</caption><thead><tr><th scope="col">Schema</th><th scope="col">Table</th><th scope="col">Heap Reads</th><th scope="col">Index Reads</th><th scope="col">TOAST Reads</th><th scope="col">Heap Hit Ratio%</th><th scope="col">Index Hit Ratio%</th><th scope="col">TOAST Hit Ratio%</th></tr></thead><tbody>' ;
 select '<tr><td>'||schemaname,
   '<td>'||relname,
   '<td class="align-right">'||coalesce(heap_blks_read, 0),
@@ -2662,7 +2952,11 @@ SELECT '<tr><td>',s.schemaname, '<td>',s.relname,
 select '</tbody></table><p>' ;
 
 select '<p><a id="idx_un"></a>' ;
-select '<p><table class="bordered"><caption>Unused indexes</caption><thead><tr><th scope="col">Schema</th><th scope="col">Relation</th><th scope="col">Index</th><th scope="col">Size</th></tr></thead><tbody>' ;
+SELECT '<p><table class="bordered"><caption>Unused indexes ( Last reset: ', stats_reset::date,
+       ' Last restart: ', pg_postmaster_start_time()::date, ')</caption>'
+  FROM pg_stat_database
+ WHERE datname = current_database();
+select '<thead><tr><th scope="col">Schema</th><th scope="col">Relation</th><th scope="col">Index</th><th scope="col">Size</th></tr></thead><tbody>' ;
 SELECT '<tr><td>',s.schemaname, '<td>',s.relname,
        '<td>',s.indexrelname, '<td class="align-right">',pg_relation_size(s.indexrelid)
   FROM pg_catalog.pg_stat_user_indexes s
@@ -2710,40 +3004,97 @@ select '</tbody></table><p>' ;
 
 select '<p><a id="idx_red"></a>' ;
 select '<p><table class="bordered"><caption>Redundant indexes</caption><thead><tr><th scope="col">Schema</th><th scope="col">Relation</th><th scope="col">Index</th><th scope="col">DDL</th><th scope="col">Size</th></tr></thead><tbody>' ;
-SELECT '<tr><td>',ni.nspname, '<td>',ct.relname, 
-       '<td>',ci.relname AS dup_idx,
-       '<td>',pg_get_indexdef(i.indexrelid) AS dup_def,
-       '<td class="align-right">',pg_relation_size(i.indexrelid), 
-       -- i.indkey,
-       '<tr><td><td><td>',cii.relname AS enc_idx,   -- Encompassing index
-       '<td>',pg_get_indexdef(ii.indexrelid) AS enc_def,
-       '<td class="align-right">',pg_relation_size(ii.indexrelid),
+WITH pairs AS (
+    SELECT
+        i.indexrelid  AS idx,
+        ii.indexrelid AS enc_idx
+    FROM pg_index i
+    JOIN pg_class ci
+      ON ci.oid = i.indexrelid
+    JOIN pg_am ami
+      ON ami.oid = ci.relam
+     AND ami.amname = 'btree'
+    JOIN pg_index ii
+      ON ii.indrelid = i.indrelid
+     AND ii.indexrelid <> i.indexrelid
+     AND i.indnkeyatts <= ii.indnkeyatts
+     AND NOT EXISTS (
+            SELECT 1
+            FROM generate_series(0, i.indnkeyatts - 1) AS s(n)
+            WHERE i.indkey[s.n] IS DISTINCT FROM ii.indkey[s.n]
+               OR i.indcollation[s.n]
+                    IS DISTINCT FROM ii.indcollation[s.n]
+               OR i.indclass[s.n]
+                    IS DISTINCT FROM ii.indclass[s.n]
+               OR i.indoption[s.n]
+                    IS DISTINCT FROM ii.indoption[s.n]
+        )
+     AND NOT EXISTS (
+            SELECT 1
+            FROM generate_series(
+                     i.indnkeyatts, i.indnatts - 1
+                 ) AS x(n)
+            WHERE NOT EXISTS (
+                SELECT 1
+                FROM generate_series(0, ii.indnatts - 1) AS y(n)
+                WHERE i.indkey[x.n] = ii.indkey[y.n]
+            )
+        )
+     AND NOT (ii.indkey::integer[] @> ARRAY[0])
+     AND NOT (i.indkey::integer[] @> ARRAY[0])
+     AND i.indpred IS NULL
+     AND ii.indpred IS NULL
+     AND CASE
+           WHEN i.indisunique THEN
+                ii.indisunique
+                AND array_to_string(ii.indkey, ' ')
+                    = array_to_string(i.indkey, ' ')
+           ELSE true
+         END
+    JOIN pg_class ctii
+      ON ii.indrelid = ctii.oid
+    JOIN pg_class cii
+      ON ii.indexrelid = cii.oid
+    WHERE NOT i.indisprimary
+      AND cii.relam = ci.relam
+)
+SELECT
+       '<tr><td>', ni.nspname,
+       '<td>', ct.relname,
+       '<td>', ci.relname AS dup_idx,
+       '<td>', pg_get_indexdef(i.indexrelid) AS dup_def,
+       '<td class="align-right">',
+            pg_relation_size(i.indexrelid),
+       '<tr><td><td><td>', cii.relname AS enc_idx,
+       '<td>', pg_get_indexdef(ii.indexrelid) AS enc_def,
+       '<td class="align-right">',
+            pg_relation_size(ii.indexrelid),
        '<!-- -->'
-       -- ii.indkey
-  FROM pg_index i
-  JOIN pg_class ct ON i.indrelid=ct.oid
-  JOIN pg_class ci ON i.indexrelid=ci.oid
-  JOIN pg_namespace ni ON ci.relnamespace=ni.oid
-  JOIN pg_index ii ON ii.indrelid=i.indrelid
-                  AND ii.indexrelid != i.indexrelid
-                  AND (array_to_string(ii.indkey, ' ') || ' ') like (array_to_string(i.indkey, ' ') || '%')
-                  AND (array_to_string(ii.indcollation, ' ')  || ' ') like (array_to_string(i.indcollation, ' ') || '%')
-                  AND (array_to_string(ii.indclass, ' ')  || ' ') like (array_to_string(i.indclass, ' ') || '%')
-                  AND (array_to_string(ii.indoption, ' ')  || ' ') like (array_to_string(i.indoption, ' ') || '%')
-                  AND NOT (ii.indkey::integer[] @> ARRAY[0])      -- Remove for expression indexes 
-                  AND NOT (i.indkey::integer[] @> ARRAY[0])       -- Remove for expression indexes 
-                  AND i.indpred IS NULL                           -- Remove for indexes with predicates
-                  AND ii.indpred IS NULL                          -- Remove for indexes with predicates
-                  AND CASE WHEN i.indisunique THEN ii.indisunique 
-                           AND array_to_string(ii.indkey, ' ') = array_to_string(i.indkey, ' ') 
-                           ELSE true END
-  JOIN pg_class ctii ON ii.indrelid=ctii.oid
-  JOIN pg_class cii ON ii.indexrelid=cii.oid
- WHERE NOT i.indisprimary  
-    -- ct.relname NOT LIKE 'pg_%'
- ORDER BY ni.nspname, ct.relname, ci.relname
- LIMIT 10000;
+FROM pairs p
+JOIN pg_index i
+  ON i.indexrelid = p.idx
+JOIN pg_index ii
+  ON ii.indexrelid = p.enc_idx
+JOIN pg_class ct
+  ON ct.oid = i.indrelid
+JOIN pg_class ci
+  ON ci.oid = i.indexrelid
+JOIN pg_namespace ni
+  ON ni.oid = ci.relnamespace
+JOIN pg_class cii
+  ON cii.oid = ii.indexrelid
+WHERE NOT EXISTS (
+    SELECT 1
+    FROM pairs p1
+    JOIN pairs p2
+      ON p2.idx = p1.enc_idx
+    WHERE p1.idx = p.idx
+      AND p2.enc_idx = p.enc_idx
+)
+ORDER BY ni.nspname, ct.relname, ci.relname
+LIMIT 10000;
 select '</tbody></table><p>' ;
+
 
 select '<p><a id="idx_all"></a>' ;
 select '<p><table class="bordered"><caption>All indexes</caption><thead><tr><th scope="col">Schema</th><th scope="col">Relation</th><th scope="col">Index</th><th scope="col">DDL</th></tr></thead><tbody>' ;
@@ -2798,7 +3149,7 @@ select '<tr><td>'||rolname, '<td>'||nspname,
 select '</tbody></table></div><p>' ;
 
 select '<div class="pre-like"><p id="over_part">';
-select '<table class="bordered"><caption>Overpartitioning check: Too much partitions</caption><thead>';
+select '<table class="bordered"><caption>Overpartitioning check: partitions count</caption><thead>';
 select '<tr><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Partitioned Object</th>';
 select '<th scope="col">Partition#</th><th scope="col">Leaf#</th>' ;
 select '<th scope="col">Few</th><th scope="col">Small</th><th scope="col">Empty</th><th scope="col">Not Analyzed</th></tr></thead><tbody>';
@@ -2825,7 +3176,7 @@ SELECT '<tr><td>' || r.rolname,
  LIMIT 20;
 select '</tbody></table>' ;
 
-select '<table class="bordered"><caption>Overpartitioning check: Empty/Small partitions List</caption><thead>';
+select '<table class="bordered"><caption>Overpartitioning check: empty/small partition list</caption><thead>';
 select '<tr><th scope="col">Owner</th><th scope="col">Schema</th><th scope="col">Partitioned Object</th>';
 select '<th scope="col">Partition</th><th scope="col">Tuples</th></tr></thead><tbody>' ;
 select '<tr><td>'||rolname, '<td>'||nspname,
@@ -3067,8 +3418,10 @@ select '</tbody></table><p><hr>' ;
 select '<p><a id="repl"></a><h2>Replication</h2>'  ;
 select '<p><table class="bordered"><caption>Replication Summary</caption>' ;
 select '<thead><tr><th scope="col">Item</th><th scope="col">Value</th></tr></thead><tbody><tr><td>In Recovery Mode</td><td>'||pg_is_in_recovery()||'</td></tr></tbody></table><p>' ;
+
 select '<p><table class="bordered"><caption>Replication Parameters</caption><thead><tr><th scope="col">Parameter</th><th scope="col">Value</th></tr></thead><tbody>' ;
-select '<tr><td>',name,'<td>',replace(replace(setting,'<','&lt;'),'>','&gt;')
+select '<tr><td>',name,'<td>', 
+       regexp_replace(replace(replace(setting,'<','&lt;'),'>','&gt;'), 'password=([^\s'']+|''[^'']*'')', 'password=''***''', 'g')
  from pg_settings
  where name in ('wal_level', 'archive_command', 'hot_standby', 'max_wal_senders', 'checkpoint_segments', 'max_wal_size', 'archive_mode', 
                 'max_standby_archive_delay', 'max_standby_streaming_delay', 'hot_standby_feedback', 'synchronous_commit',
@@ -3373,6 +3726,7 @@ SELECT
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='hypopg' and installed_version is not null) as hypopg,
     EXISTS (SELECT 1 FROM pg_tables WHERE tablename='pgstatspack_snap' and schemaname='public') as pgstatspack,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='edbspl') as edb,
+    EXISTS (SELECT 1 FROM pg_catalog.pg_class c JOIN pg_catalog.pg_namespace n ON n.oid = c.relnamespace WHERE n.nspname = 'sys' AND c.relname = 'product_component_version') as edbsys,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='system_stats') as system_stats,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='rds_tools') as amazon_rds,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='rds_tools' and installed_version is not null) as rds_tools,
@@ -3383,7 +3737,14 @@ SELECT
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='google_columnar_engine') as alloydb,
     EXISTS (SELECT 1 FROM pg_settings WHERE name='google_columnar_engine.enabled' and setting='on') as alloy_col,
     EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='yb_pg_metrics') as yugabyte,
-    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_stash_advice') as pg_stash_advice
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_stash_advice') as pg_stash_advice,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_wait_sampling' and installed_version is not null) as pg_wait_sampling,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_qualstats' and installed_version is not null) as pg_qualstats,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_cron' and installed_version is not null) as pg_cron,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_partman' and installed_version is not null) as pg_partman,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='citus' and installed_version is not null) as citus,
+    EXISTS (SELECT 1 FROM pg_available_extensions WHERE name='pg_tle' and installed_version is not null) as pg_tle,
+    0 as stub
 \gset opt_
 
 
@@ -3442,7 +3803,7 @@ select '</div></table><p><hr>' ;
 
 \if :opt_pgstattuple
 select '<p><a id="pgstattuple"></a>'  ;
-select '<p><table class="bordered"><tr><th>Bloat detailed informations for biggest tables (can be time expensive: enable only if needed)</th></tr>';
+select '<p><table class="bordered"><tr><th>Bloat detailed informations for biggest objects (can be time expensive: enable only if needed)</th></tr>';
 select '<tr><td><p><div class="pre-like">' ;
 \pset tuples_only
 \a
@@ -3457,21 +3818,36 @@ select n.nspname as schema, relname as table, relpages, (pgstattuple_approx(pg_c
  limit 20;
 
 select n.nspname as schema, relname as index, relpages, (pgstatindex(pg_class.oid::regclass)).*
-  from pg_class, pg_roles, pg_catalog.pg_namespace n
+  from pg_class, pg_roles, pg_catalog.pg_namespace n, pg_am m
  where relowner=pg_roles.oid
    and n.oid=pg_class.relnamespace
+   and relam = m.oid
    and relkind = 'i'
+   and m.amname = 'btree'
  order by relpages desc
- limit 10;
+ limit 20;
 
 select n.nspname as schema, relname as index, relpages, (pgstatginindex(pg_class.oid::regclass)).*
-  from pg_class, pg_roles, pg_catalog.pg_namespace n
+  from pg_class, pg_roles, pg_catalog.pg_namespace n, pg_am m
  where relowner=pg_roles.oid
    and n.oid=pg_class.relnamespace
+   and relam = m.oid
    and relkind = 'i'
+   and m.amname = 'gin'
  order by relpages desc
  limit 10;
 
+select n.nspname as schema, relname as index, relpages, (pgstathashindex(pg_class.oid::regclass)).*
+  from pg_class, pg_roles, pg_catalog.pg_namespace n, pg_am m
+ where relowner=pg_roles.oid
+   and n.oid=pg_class.relnamespace
+   and relam = m.oid
+   and relkind = 'i'
+   and m.amname = 'hash'
+ order by relpages desc
+ limit 10;
+
+\if 0
 select n.nspname as schema, relname as table, relpages, (pgstattuple(pg_class.oid::regclass)).*
   from pg_class, pg_roles, pg_catalog.pg_namespace n
  where relowner=pg_roles.oid
@@ -3479,6 +3855,7 @@ select n.nspname as schema, relname as table, relpages, (pgstattuple(pg_class.oi
    and relkind = 'r'
  order by relpages desc
  limit 10;
+\endif
 \endif
 
 \pset tuples_only
@@ -3533,7 +3910,7 @@ select t2.*
            unnest(coalesce(most_common_freqs::text::text[], array['0'])) freq, null_frac
       from pg_stats
      where schemaname not in ('pg_catalog', 'information_schema')
-       and tablename in ('pgbench_accounts')
+       and tablename in ( :var_histogram )
      order by 1, 2, 6 desc ) tstat ) t2
  where sample<=10
 order by 2,3,7 desc;
@@ -3669,24 +4046,45 @@ select '<tr><td><div class="pre-like">' ;
 \pset tuples_only
 \a
 
-select pid, datname, 'VACUUM' command, phase, heap_blks_total total, heap_blks_scanned done    -- 9.6+
-  from pg_stat_progress_vacuum
-union
-select pid, datname, command, phase, heap_blks_total total, heap_blks_scanned done             -- 12+
-  from pg_stat_progress_cluster
-union
-select pid, datname, command, phase, blocks_total total, blocks_done done
-  from pg_stat_progress_create_index
-union
-select pid, datname, 'ANALYZE', phase, sample_blks_total total, sample_blks_scanned done       -- 13+
-  from pg_stat_progress_analyze
-union
-select pid, '*', 'PG_BASE_BACKUP', phase, backup_total total, backup_streamed done
-  from pg_stat_progress_basebackup
-union
-select pid, datname, command, type, bytes_total total, bytes_processed done                    -- 14+
-  from pg_stat_progress_copy
- order by pid;
+WITH progress AS (
+    -- 9.6+
+    SELECT pid, datname, 'VACUUM' AS command, phase, 
+           heap_blks_total AS total, heap_blks_scanned AS done, 
+           relid::regclass::text AS target
+      FROM pg_stat_progress_vacuum
+    UNION ALL
+    -- 12+
+    SELECT pid, datname, command, phase, 
+           heap_blks_total, heap_blks_scanned, 
+           relid::regclass::text
+      FROM pg_stat_progress_cluster
+    UNION ALL
+    SELECT pid, datname, command, phase, 
+           blocks_total, blocks_done, 
+           relid::regclass::text
+      FROM pg_stat_progress_create_index
+    UNION ALL
+    -- 13+
+    SELECT pid, datname, 'ANALYZE', phase, 
+           sample_blks_total, sample_blks_scanned, 
+           relid::regclass::text
+      FROM pg_stat_progress_analyze
+    UNION ALL
+    SELECT pid, '*', 'PG_BASE_BACKUP', phase, 
+           backup_total, backup_streamed, 
+           NULL::text AS target
+      FROM pg_stat_progress_basebackup
+    UNION ALL
+    -- 14+
+    SELECT pid, datname, command, type, 
+           bytes_total, bytes_processed, 
+           relid::regclass::text
+      FROM pg_stat_progress_copy
+)
+SELECT pid, datname, command, target, phase, total, done,
+       ROUND(100.0 * done / NULLIF(total, 0), 2) AS pct_complete
+  FROM progress
+ ORDER BY pid;
 
 select *, 
        pg_size_pretty(wal_bytes/extract(epoch from (now()-stats_reset)/3600)) wal_hour
@@ -3812,11 +4210,19 @@ select '<tr><td><div class="pre-like">' ;
 \pset tuples_only
 \a
 
-select case when pgekind='e' then 'Edge' else 'Vertex' end as pgekind,
-       count(*) as obj_count, string_agg(pgealias, ', ') as list
-  from pg_propgraph_element
- group by pgekind
- order by pgekind desc;
+SELECT locktype, waits, wait_time,
+       round(wait_time::numeric / NULLIF(waits, 0), 1) AS avg_wait_ms,
+       fastpath_exceeded, stats_reset
+  FROM pg_stat_lock
+ WHERE waits > 0
+ ORDER BY wait_time DESC;
+
+SELECT relname, score, xid_score, vacuum_score,
+       vacuum_insert_score, analyze_score,
+       do_vacuum, do_analyze, for_wraparound
+  FROM pg_stat_autovacuum_scores
+ ORDER BY score DESC
+ LIMIT 10;
 
 \if :opt_pg_stash_advice
 SELECT c.stash_name, c.query_id, c.advice_string, s.num_entries
@@ -3824,6 +4230,25 @@ SELECT c.stash_name, c.query_id, c.advice_string, s.num_entries
   JOIN pg_get_advice_stash_contents(s.stash_name) AS c ON TRUE
  ORDER BY c.stash_name, c.query_id;
 \endif
+
+\pset tuples_only
+\a
+select '</div></table><p>' ;
+\endif
+
+
+\if :var_version_20p
+select '<p><a id="20_stats"></a>'  ;
+select '<p><table class="bordered"><tr><th>Additional PG20+ Statistics</th></tr>';
+select '<tr><td><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+select case when pgekind='e' then 'Edge' else 'Vertex' end as pgekind,
+       count(*) as obj_count, string_agg(pgealias, ', ') as list
+  from pg_propgraph_element
+ group by pgekind
+ order by pgekind desc;
 
 \pset tuples_only
 \a
@@ -3848,9 +4273,6 @@ SELECT pg_get_indexdef(indexrelid) from pg_index
 SELECT table_schema||'.'||table_name as table, column_name, data_type
  FROM information_schema.columns
  WHERE data_type='tsvector';
-
--- SELECT * FROM pgstatginindex('bench.pgbench_accounts_idx_gin_filler');
--- SELECT * FROM pgstatindex('bench.pgbench_accounts_idx_gist_filler');
 
 \pset tuples_only
 \a
@@ -4108,6 +4530,7 @@ select '<tr><td><p><div class="pre-like">' ;
 \pset tuples_only
 \a
 
+\if :opt_edbsys
 select *
   from product_component_version;
 
@@ -4186,10 +4609,10 @@ WHERE p.pkgbodysrc IS NOT NULL
 ) a
 group by schema_name, owner
 order by schema_name, owner;
-
+\endif
 
 -- EDB Performance 
--- It seems that there are differences between EDB minor versions on the following tables... edb_wait_states_data
+-- It seems that there are differences between EDB minor versions on the following (skipped) tables: edb_wait_states_data
 select *
   from system_waits;
 select *
@@ -4401,10 +4824,152 @@ SELECT *
 select '</div></table><p><hr>' ;
 \endif
 
+
+\if :opt_pg_wait_sampling
+select '<p><a id="pg_wait_sampling"></a>'  ;
+select '<p><table class="bordered"><tr><th>Wait Sampling</th></tr>';
+select '<tr><td><p><div class="pre-like">' ;
+\pset tuples_only
+\a
+SELECT event_type, event, count(*) AS sample_count
+  FROM pg_wait_sampling_current
+ GROUP BY event_type, event
+ ORDER BY sample_count DESC
+ LIMIT 10;
+
+SELECT pid, event_type, event, queryid, ts
+  FROM pg_wait_sampling_get_history()
+ ORDER BY ts DESC
+ LIMIT 20;
+
+\pset tuples_only
+\a
+select '</div></table><p><hr>' ;
+\endif
+
+
+\if :opt_pg_qualstats
+select '<p><a id="pg_qualstats"></a>'  ;
+select '<p><table class="bordered"><tr><th> pg_qualstats </th></tr>';
+select '<tr><td><p><div class="pre-like">' ;
+\pset tuples_only
+\a
+SELECT *
+  FROM pg_qualstats_index_advisor();
+
+SELECT left_table, left_column, operator, execution_count, nbfiltered
+  FROM pg_qualstats_pretty
+ ORDER BY execution_count DESC
+ LIMIT 10;
+
+\pset tuples_only
+\a
+select '</div></table><p><hr>' ;
+\endif
+
+
+\if :opt_citus
+select '<p><a id="citus"></a>'  ;
+select '<p><table class="bordered"><tr><th>Citus</th></tr>';
+select '<tr><td><p><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+SELECT nodename, nodeport, noderole, nodediskspace, isactive
+  FROM pg_dist_node;
+
+SELECT logicalrelid::regclass AS distributed_table, partmethod, colocationid
+  FROM pg_dist_partition;
+
+\pset tuples_only
+\a
+select '</div></table><p><hr>' ;
+\endif
+
+
+\if :opt_pg_tle
+select '<p><a id="pg_tle"></a>'  ;
+select '<p><table class="bordered"><tr><th>Trusted Language Extensions</th></tr>';
+select '<tr><td><p><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+SELECT name, default_version, comment
+  FROM pgtle.available_extensions();
+
+SELECT extname, version, req_version
+  FROM pgtle.available_extension_versions();
+
+\pset tuples_only
+\a
+select '</div></table><p><hr>' ;
+\endif
+
+
+\if :opt_pg_cron
+select '<p><a id="pg_cron"></a>'  ;
+select '<p><table class="bordered"><tr><th>pg_cron</th></tr>';
+select '<tr><td><p><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+SELECT jobid, jobname, schedule, command, database, username, active
+  FROM cron.job
+ ORDER BY active DESC, jobid;
+
+SELECT j.jobname, d.status, d.start_time, 
+       (d.end_time - d.start_time) AS duration, 
+       d.return_message
+  FROM cron.job_run_details d
+  JOIN cron.job j USING (jobid)
+ ORDER BY d.start_time DESC
+ LIMIT 20;
+
+\pset tuples_only
+\a
+select '</div></table><p><hr>' ;
+\endif
+
+
+\if :opt_pg_partman
+select '<p><a id="pg_partman"></a>'  ;
+select '<p><table class="bordered"><tr><th> pg_partman </th></tr>';
+select '<tr><td><p><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+SELECT parent_table, control, partition_type, partition_interval, 
+       premake, retention, retention_keep_table
+  FROM partman.show_partition_info(); 
+
+-- SELECT parent_table, control, partition_type, partition_interval, retention
+--   FROM partman.config;
+
+\pset tuples_only
+\a
+select '</div></table><p><hr>' ;
+\endif
+
+
+\if :opt_stub
+select '<p><a id="stub"></a>'  ;
+select '<p><table class="bordered"><tr><th>Optional Stub</th></tr>';
+select '<tr><td><p><div class="pre-like">' ;
+\pset tuples_only
+\a
+
+select * from pg_class limit 1;
+
+\pset tuples_only
+\a
+select '</div></table><p><hr>' ;
+\endif
+
+
 \if :var_todo
 select '<p><a id="todo"></a>'  ;
 select '<p><table class="bordered"><tr><th>Experimental</th></tr>';
-select '<tr><td><div class="pre-like">' ;
+select '<tr><td><xmp>' ;
 \pset tuples_only
 \a
 
@@ -4524,7 +5089,7 @@ SELECT queryid,
     round(mean_exec_time::numeric, 2) as avg_ms,
     round(stddev_exec_time::numeric, 2) as jitter_stddev, 
     round((stddev_exec_time / NULLIF(mean_exec_time, 0) * 100)::numeric, 2) as variability_pct,
-    left(query, 30) as jittering_query
+    left(query, 50) as jittering_query
 FROM pg_stat_statements 
 WHERE calls > 100
   AND mean_exec_time > 50
@@ -4539,22 +5104,40 @@ select 'TX /Connection' stat,
  where datname=current_database();
 \endif
 
+\if :var_as_admin
+SELECT s.schemaname||'.'||s.relname as rewrited_table,
+       c.oid, c.relfilenode,
+       pg_size_pretty(pg_relation_size(c.oid)) AS size,
+       (pg_stat_file(pg_relation_filepath(c.oid))).modification AS file_mtime,
+       s.last_vacuum,
+       s.last_autovacuum
+  FROM pg_stat_user_tables s
+  JOIN pg_class c ON c.oid = s.relid
+ WHERE c.relfilenode <> c.oid
+   AND c.relfilenode <> 0
+ ORDER BY pg_relation_size(c.oid) DESC
+ LIMIT 20;
+\endif
 
 \pset tuples_only
 \a
-select '</div></table><p>' ;
+select '</xmp></table><p>' ;
 \endif
 
 
 select '<hr><p>' ;
 select '<div><a href="#top" class="back-to-top">⬆ Back to index</a></div>' as info;
 select '<p>Statistics generated on: '|| current_date || ' ' ||localtime ;
-select '<br>More info on' ;
-select '<a href="https://www.meo.bogliolo.name/en">this site</a>' ;
+select '<br>More info: ' ;
+select '<a href="https://www.meo.bogliolo.name/pub/how-to-read-pg2html.htm">usage, parameters and how to read the report</a>' ;
+\if :var_telemetry
+ select '<!-- Lightweight, privacy-first telemetry via Umami -->' ;
+ select '<script>function noURL(t, p) {if (p.url) {p.url = "/pg2html/" + p.url.split(/[\\/]/).pop();} if (p.path) {p.path = "/pg2html";} return p;} </script>' ;
+ select '<script defer src="https://cloud.umami.is/script.js" data-website-id="01994255-5ce3-4860-ad96-5069f62e97b5" data-before-send="noURL"></script>' ;
+\endif
+select '<script src="util.js"></script>' ;
 select '<br> Copyright: 2026 meob - License: GNU General Public License v3.0' ;
 select '<br> Sources: https://github.com/meob/db2html/ <p>' ;
-select '<script src="util.js"></script>' ;
-
 select '</body></html>' ;
 \pset tuples_only
 \a
